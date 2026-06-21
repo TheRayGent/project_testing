@@ -90,7 +90,17 @@ int main() {
 
             save_db(db);
 
-            return crow::response(201, "Пользователь успешно зарегистрирован");
+            auto token = jwt::create()
+                .set_issuer(ISSUER)
+                .set_type("JWS")
+                .set_payload_claim("username", jwt::claim(username))
+                .set_payload_claim("role", jwt::claim(role))
+                .set_expires_at(std::chrono::system_clock::now() + std::chrono::hours(24))
+                .sign(jwt::algorithm::hs256{JWT_SECRET});
+
+            crow::response res(201, "Пользователь успешно зарегистрирован");
+            res.add_header("Set-Cookie", "token=" + token + "; Path=/; HttpOnly; SameSite=Lax");
+            return res;
         } 
         catch (const std::exception& e) {
             return crow::response(400, "Неверный формат запроса JSON");
@@ -116,7 +126,7 @@ int main() {
                 .set_type("JWS")
                 .set_payload_claim("username", jwt::claim(username))
                 .set_payload_claim("role", jwt::claim(role))
-                .set_expires_at(std::chrono::system_clock::now() + std::chrono::hours(168))
+                .set_expires_at(std::chrono::system_clock::now() + std::chrono::hours(24))
                 .sign(jwt::algorithm::hs256{JWT_SECRET});
 
             crow::response res(200, "Успешный вход в систему");
