@@ -128,6 +128,14 @@ int main() {
         }
     });
 
+    CROW_ROUTE(app, "/api/logout").methods(crow::HTTPMethod::Post)([](const crow::request& req) {
+        crow::response res(200, "Успешный выход из системы");
+        
+        res.add_header("Set-Cookie", "token=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0");
+        
+        return res;
+    });
+
     CROW_ROUTE(app, "/api/profile")([](const crow::request& req) {
         std::string cookie_header = req.get_header_value("Cookie");
         std::string token = get_token_from_cookie(cookie_header);
