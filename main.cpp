@@ -74,7 +74,6 @@ std::string get_token_from_cookie(const std::string& cookie_header) {
     return cookie_header.substr(start, end - start);
 }
 
-
 int main() {
     std::setlocale(LC_ALL, "Russian");
     crow::SimpleApp app;
@@ -111,8 +110,8 @@ int main() {
             int current_id = users_data["next_id"];
             users_data["next_id"] = current_id + 1;
 
-            std::string id_str = std::to_string(current_id);
-            users_data["data"][id_str] = {
+            std::string user_id = std::to_string(current_id);
+            users_data["data"][user_id] = {
                 {"username", username},
                 {"password_hash", hash_password(password)},
                 {"role", role},
@@ -125,7 +124,7 @@ int main() {
             auto token = jwt::create()
                 .set_issuer(ISSUER)
                 .set_type("JWS")
-                .set_payload_claim("user_id", jwt::claim(id_str))
+                .set_payload_claim("user_id", jwt::claim(user_id))
                 .set_payload_claim("role", jwt::claim(role))
                 .set_expires_at(std::chrono::system_clock::now() + std::chrono::hours(24))
                 .sign(jwt::algorithm::hs256{JWT_SECRET});
@@ -140,7 +139,7 @@ int main() {
 
     });
 
-        CROW_ROUTE(app, "/api/login").methods(crow::HTTPMethod::Post)([](const crow::request& req) {
+    CROW_ROUTE(app, "/api/login").methods(crow::HTTPMethod::Post)([](const crow::request& req) {
         try {
             auto body = json::parse(req.body);
             std::string username = body.at("username");
@@ -148,9 +147,9 @@ int main() {
             std::string found_id = "";
             std::string role = "";
 
-            json db = users_db.read();
+            json users_data = users_db.read();
             
-            for (auto& [id, user] : db["data"].items()) {
+            for (auto& [id, user] : users_data["data"].items()) {
                 if (user["username"] == username) {
                     if (user["password_hash"] == hash_password(password)) {
                         found_id = id;
@@ -207,13 +206,13 @@ int main() {
 
             std::string user_id = decoded.get_payload_claim("user_id").as_string();
             
-            json db = users_db.read();
+            json users_data = users_db.read();
             
-            if (!db["data"].contains(user_id)) {
+            if (!users_data["data"].contains(user_id)) {
                 return crow::response(404, "Пользователь не найден");
             }
 
-            auto user_data = db["data"][user_id];
+            auto user_data = users_data["data"][user_id];
 
             json profile_info = {
                 {"id", user_id},
@@ -225,6 +224,65 @@ int main() {
 
             return crow::response(200, profile_info.dump());
         } 
+        catch (const std::exception& e) {
+            return crow::response(401, "Сессия устарела или токен поврежден. Войдите заново.");
+        }
+    });
+
+    CROW_ROUTE(app, "/api/tests/create").methods(crow::HTTPMethod::Post)([](const crow::request& req) {
+        std::string cookie_header = req.get_header_value("Cookie");
+        std::string token = get_token_from_cookie(cookie_header);
+
+        if (token.empty()) {
+            return crow::response(401, "Ошибка: требуется авторизация");
+        }
+
+        try {
+            auto decoded = jwt::decode(token);
+            auto verifier = jwt::verify()
+                .allow_algorithm(jwt::algorithm::hs256{JWT_SECRET})
+                .with_issuer(ISSUER);
+            
+            verifier.verify(decoded);
+
+            std::string role = decoded.get_payload_claim("role").as_string();
+            std::string user_id = decoded.get_payload_claim("user_id").as_string();
+
+            if (role != "teacher") {
+                return crow::response(403, "Доступ запрещен: создавать тесты могут только преподаватели");
+            }
+
+            auto body = json::parse(req.body);
+            std::string title = body.at("title");
+            std::string description = body.at("description");
+            auto questions = body.at("questions");
+            auto access = body.at("access");
+
+            if (title.empty() || questions.empty() || !questions.is_array()) {
+                return crow::response(400, "Название теста и массив не могут быть пустыми");
+            }
+
+            json tests_data = tests_db.read();
+
+            int current_id = tests_data["next_id"];
+            tests_data["next_id"] = current_id + 1;
+
+            std::string test_id = std::to_string(current_id);
+            tests_data["data"][test_id] = {
+                {"title", title},
+                {"description", description},
+                {"teacher", user_id},
+                {"access", access},
+                {"questions", questions}
+            };
+
+            tests_db.write(tests_data);
+
+            return crow::response(201, "Тест успешно создан");
+        }
+        catch (const json::exception& e) {
+            return crow::response(400, "Неверный формат запроса JSON");
+        }
         catch (const std::exception& e) {
             return crow::response(401, "Сессия устарела или токен поврежден. Войдите заново.");
         }
