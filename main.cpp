@@ -8,39 +8,48 @@
 
 using json = nlohmann::json;
 
-const std::string USERS_DB = "users_db.json";
-const std::string TESTS_DB = "tests_db.json";
 const std::string JWT_SECRET = "very_secure_secret_key_2026_xyz";
 const std::string PASSWORD_SALT = "some_random_salt_string_123!";
 const std::string ISSUER = "project_testing";
 
-std::mutex db_mutex;
+class JSONDatabase {
+private:
+    std::string db_file;
+    std::mutex db_mutex;
 
-json read_db(const std::string db_file) {
-    std::lock_guard<std::mutex> lock(db_mutex);
-    std::ifstream file(db_file);
-    json data;
-    if (!file.is_open()) {
-        data = {{"next_id", 1}, {"data", json::object()}};
-        return data; 
-    }
-    try {
-        file >> data;
-        if (!data.contains("data")) data["data"] = json::object();
-        if (!data.contains("next_id")) data["next_id"] = 1;
-    } catch (...) {
-        data = {{"next_id", 1}, {"data", json::object()}};
-    }
-    return data;
-}
+public:
+    explicit JSONDatabase(std::string file_path) : db_file(std::move(file_path)) {}
 
-void save_db(const json& data, const std::string db_file) {
-    std::lock_guard<std::mutex> lock(db_mutex);
-    std::ofstream file(db_file);
-    if (file.is_open()) {
-        file << data.dump(4);
+    json read() {
+        std::lock_guard<std::mutex> lock(db_mutex);
+        std::ifstream file(db_file);
+        json data;
+
+        if (!file.is_open()) {
+            data = {{"next_id", 1}, {"data", json::object()}};
+            return data; 
+        }
+        try {
+            file >> data;
+            if (!data.contains("data")) data["data"] = json::object();
+            if (!data.contains("next_id")) data["next_id"] = 1;
+        } catch (...) {
+            data = {{"next_id", 1}, {"data", json::object()}};
+        }
+        return data;
     }
-}
+
+    void write(const json& data) {
+        std::lock_guard<std::mutex> lock(db_mutex);
+        std::ofstream file(db_file);
+        if (file.is_open()) {
+            file << data.dump(4);
+        }
+    }
+};
+
+JSONDatabase users_db("users_db.json");
+JSONDatabase tests_db("tests_db.json");
 
 std::string hash_password(const std::string& password) {
     std::string salted_password = password + PASSWORD_SALT;
@@ -91,7 +100,7 @@ int main() {
                 return crow::response(400, "Недопустимая роль. Разрешено только 'teacher' или 'student'");
             }
 
-            json users_data = read_db(USERS_DB);
+            json users_data = users_db.read();
 
             for (auto& [id, user] : users_data["data"].items()) {
                 if (user["username"] == username) {
@@ -111,7 +120,7 @@ int main() {
                 {"lastname", lastname}
             };
 
-            save_db(users_data, USERS_DB);
+            users_db.write(users_data);
 
             auto token = jwt::create()
                 .set_issuer(ISSUER)
@@ -139,7 +148,7 @@ int main() {
             std::string found_id = "";
             std::string role = "";
 
-            json db = read_db(USERS_DB);
+            json db = users_db.read();
             
             for (auto& [id, user] : db["data"].items()) {
                 if (user["username"] == username) {
@@ -198,7 +207,7 @@ int main() {
 
             std::string user_id = decoded.get_payload_claim("user_id").as_string();
             
-            json db = read_db(USERS_DB);
+            json db = users_db.read();
             
             if (!db["data"].contains(user_id)) {
                 return crow::response(404, "Пользователь не найден");
