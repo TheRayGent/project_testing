@@ -59,4 +59,14 @@ if(MSVC)
     target_include_directories(project_testing PRIVATE "C:/Program Files/OpenSSL-Win64/include")
     target_link_directories(project_testing PRIVATE "C:/Program Files/OpenSSL-Win64/lib/VC/x64/MT")
     target_link_libraries(project_testing PRIVATE libssl_static libcrypto_static user32 advapi32 crypt32)
+else()
+    find_package(OpenSSL REQUIRED)
+    
+    find_package(Threads REQUIRED)
+    
+    target_link_libraries(project_testing PRIVATE 
+        OpenSSL::SSL 
+        OpenSSL::Crypto
+        Threads::Threads
+    )
 endif()
