@@ -9,44 +9,44 @@
 using json = nlohmann::json;
 
 const std::string USERS_DB = "users_db.json";
+const std::string TESTS_DB = "tests_db.json";
 const std::string JWT_SECRET = "very_secure_secret_key_2026_xyz";
 const std::string PASSWORD_SALT = "some_random_salt_string_123!";
 const std::string ISSUER = "project_testing";
 
 std::mutex db_mutex;
 
+json read_db(const std::string db_file) {
+    std::lock_guard<std::mutex> lock(db_mutex);
+    std::ifstream file(db_file);
+    json data;
+    if (!file.is_open()) {
+        data = {{"next_id", 1}, {"data", json::object()}};
+        return data; 
+    }
+    try {
+        file >> data;
+        if (!data.contains("data")) data["data"] = json::object();
+        if (!data.contains("next_id")) data["next_id"] = 1;
+    } catch (...) {
+        data = {{"next_id", 1}, {"data", json::object()}};
+    }
+    return data;
+}
+
+void save_db(const json& data, const std::string db_file) {
+    std::lock_guard<std::mutex> lock(db_mutex);
+    std::ofstream file(db_file);
+    if (file.is_open()) {
+        file << data.dump(4);
+    }
+}
+
 std::string hash_password(const std::string& password) {
     std::string salted_password = password + PASSWORD_SALT;
     std::string hex_value;
     picosha2::hash256_hex_string(salted_password, hex_value);
     return hex_value;
-}
-
-json load_db() {
-    std::lock_guard<std::mutex> lock(db_mutex);
-    std::ifstream file(USERS_DB);
-    if (!file.is_open()) {
-        json default_db = {{"next_id", 1}, {"users", json::object()}};
-        return default_db; 
-    }
-    try {
-        json db;
-        file >> db;
-        if (!db.contains("users")) db["users"] = json::object();
-        if (!db.contains("next_id")) db["next_id"] = 1;
-        return db;
-    } catch (...) {
-        json default_db = {{"next_id", 1}, {"users", json::object()}};
-        return default_db;
-    }
-}
-
-void save_db(const json& db) {
-    std::lock_guard<std::mutex> lock(db_mutex);
-    std::ofstream file(USERS_DB);
-    if (file.is_open()) {
-        file << db.dump(4);
-    }
 }
 
 std::string get_token_from_cookie(const std::string& cookie_header) {
@@ -91,19 +91,19 @@ int main() {
                 return crow::response(400, "Недопустимая роль. Разрешено только 'teacher' или 'student'");
             }
 
-            json db = load_db();
+            json users_data = read_db(USERS_DB);
 
-            for (auto& [id, user] : db["users"].items()) {
+            for (auto& [id, user] : users_data["data"].items()) {
                 if (user["username"] == username) {
                     return crow::response(400, "Пользователь с таким логином уже существует");
                 }
             }
 
-            int current_id = db["next_id"];
-            db["next_id"] = current_id + 1;
+            int current_id = users_data["next_id"];
+            users_data["next_id"] = current_id + 1;
 
             std::string id_str = std::to_string(current_id);
-            db["users"][id_str] = {
+            users_data["data"][id_str] = {
                 {"username", username},
                 {"password_hash", hash_password(password)},
                 {"role", role},
@@ -111,7 +111,7 @@ int main() {
                 {"lastname", lastname}
             };
 
-            save_db(db);
+            save_db(users_data, USERS_DB);
 
             auto token = jwt::create()
                 .set_issuer(ISSUER)
@@ -139,9 +139,9 @@ int main() {
             std::string found_id = "";
             std::string role = "";
 
-            json db = load_db();
+            json db = read_db(USERS_DB);
             
-            for (auto& [id, user] : db["users"].items()) {
+            for (auto& [id, user] : db["data"].items()) {
                 if (user["username"] == username) {
                     if (user["password_hash"] == hash_password(password)) {
                         found_id = id;
@@ -198,13 +198,13 @@ int main() {
 
             std::string user_id = decoded.get_payload_claim("user_id").as_string();
             
-            json db = load_db();
+            json db = read_db(USERS_DB);
             
-            if (!db["users"].contains(user_id)) {
+            if (!db["data"].contains(user_id)) {
                 return crow::response(404, "Пользователь не найден");
             }
 
-            auto user_data = db["users"][user_id];
+            auto user_data = db["data"][user_id];
 
             json profile_info = {
                 {"id", user_id},
