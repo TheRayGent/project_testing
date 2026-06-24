@@ -24,7 +24,7 @@ private:
         if (file.is_open() && file.peek() != std::ifstream::traits_type::eof()) {
             try {
                 file >> cache_data;
-                
+
                 if (!cache_data.contains("data")) cache_data["data"] = json::object();
                 if (!cache_data.contains("next_id")) cache_data["next_id"] = 1;
 
@@ -96,8 +96,7 @@ int main() {
             }
 
             bool is_success = false;
-            std::string token = "";
-
+            std::string user_id = "";
             std::string password_hash = hash_password(password);
 
             users_db.update([&](json& users_data) {
@@ -109,7 +108,7 @@ int main() {
 
                 int current_id = users_data["next_id"];
                 users_data["next_id"] = current_id + 1;
-                std::string user_id = std::to_string(current_id);
+                user_id = std::to_string(current_id);
 
                 users_data["data"][user_id] = {
                     {"username", username},
@@ -119,20 +118,20 @@ int main() {
                     {"lastname", lastname}
                 };
 
-                token = jwt::create()
-                    .set_issuer(ISSUER)
-                    .set_type("JWS")
-                    .set_payload_claim("user_id", jwt::claim(user_id))
-                    .set_payload_claim("role", jwt::claim(role))
-                    .set_expires_at(std::chrono::system_clock::now() + std::chrono::hours(24))
-                    .sign(jwt::algorithm::hs256{JWT_SECRET});
-
                 is_success = true;
             });
 
             if (!is_success) {
                 return crow::response(400, "Пользователь с таким логином уже существует");
             }
+
+            std::string token = jwt::create()
+                    .set_issuer(ISSUER)
+                    .set_type("JWS")
+                    .set_payload_claim("user_id", jwt::claim(user_id))
+                    .set_payload_claim("role", jwt::claim(role))
+                    .set_expires_at(std::chrono::system_clock::now() + std::chrono::hours(24))
+                    .sign(jwt::algorithm::hs256{JWT_SECRET});
 
             json response_json = {
                 {"message", "Пользователь успешно зарегистрирован"},
@@ -146,7 +145,6 @@ int main() {
         catch (const std::exception& e) {
             return crow::response(400, "Неверный формат запроса JSON");
         }
-
     });
 
     CROW_ROUTE(app, "/api/users/login").methods(crow::HTTPMethod::Post)([](const crow::request& req) {
@@ -266,22 +264,40 @@ int main() {
             auto questions = body.at("questions");
             auto access = body.at("access");
 
-            if (title.empty() || questions.empty() || !questions.is_array()) {
-                return crow::response(400, "Название теста и массив не могут быть пустыми");
+            if (title.empty()) {
+                return crow::response(400, "Название теста не может быть пустым");
+            }
+            if (!questions.is_array() || questions.empty()) {
+                return crow::response(400, "Массив вопросов не может быть пустым");
             }
 
-            tests_db.update([&](json& tests_data) {
+            for (const auto& q : questions) {
+                if (!q.is_object() || !q.contains("text") || !q.contains("options") || !q.contains("correct_option")) {
+                    return crow::response(400, "Ошибка структуры вопроса");
+                }
+                if (q["text"].get<std::string>().empty() || !q["options"].is_array() || q["options"].empty()) {
+                    return crow::response(400, "Неверный формат вопроса или вариантов ответа");
+                }
+                int correct_opt = q["correct_option"].get<int>();
+                if (correct_opt < 0 || static_cast<size_t>(correct_opt) >= q["options"].size()) {
+                    return crow::response(400, "Неверный индекс правильного ответа");
+                }
+            }
+
+            json new_test = {
+                {"title", title},
+                {"description", description},
+                {"teacher", user_id},
+                {"access", access},
+                {"questions", questions}
+            };
+
+            tests_db.update([&, new_test = std::move(new_test)](json& tests_data) {
                 int current_id = tests_data["next_id"];
                 tests_data["next_id"] = current_id + 1;
 
                 std::string test_id = std::to_string(current_id);
-                tests_data["data"][test_id] = {
-                    {"title", title},
-                    {"description", description},
-                    {"teacher", user_id},
-                    {"access", access},
-                    {"questions", questions}
-                };
+                tests_data["data"][test_id] = std::move(new_test);
             });
 
             return crow::response(201, "Тест успешно создан");
