@@ -3,8 +3,9 @@
 #include <picosha2.h>
 #include <jwt-cpp/jwt.h>
 #include <fstream>
-#include <mutex>
+#include <shared_mutex>
 #include <string>
+#include <functional>
 
 using json = nlohmann::json;
 
@@ -15,36 +16,47 @@ const std::string ISSUER = "project_testing";
 class JSONDatabase {
 private:
     std::string db_file;
-    std::mutex db_mutex;
+    mutable std::shared_mutex db_mutex;
+    json cache_data;
 
-public:
-    explicit JSONDatabase(std::string file_path) : db_file(std::move(file_path)) {}
-
-    json read() {
-        std::lock_guard<std::mutex> lock(db_mutex);
+    void load_from_disk() {
         std::ifstream file(db_file);
-        json data;
+        if (file.is_open() && file.peek() != std::ifstream::traits_type::eof()) {
+            try {
+                file >> cache_data;
+                
+                if (!cache_data.contains("data")) cache_data["data"] = json::object();
+                if (!cache_data.contains("next_id")) cache_data["next_id"] = 1;
 
-        if (!file.is_open()) {
-            data = {{"next_id", 1}, {"data", json::object()}};
-            return data; 
+                return;
+            }
+            catch (const json::parse_error& e) {
+                cache_data = {{"next_id", 1}, {"data", json::object()}};
+            }
+        } else {
+            cache_data = {{"next_id", 1}, {"data", json::object()}};
         }
-        try {
-            file >> data;
-            if (!data.contains("data")) data["data"] = json::object();
-            if (!data.contains("next_id")) data["next_id"] = 1;
-        } catch (...) {
-            data = {{"next_id", 1}, {"data", json::object()}};
-        }
-        return data;
     }
 
-    void write(const json& data) {
-        std::lock_guard<std::mutex> lock(db_mutex);
+    void save_to_disk_internal() const {
         std::ofstream file(db_file);
-        if (file.is_open()) {
-            file << data.dump(4);
-        }
+        file << cache_data.dump(4);
+    }
+
+public:
+    explicit JSONDatabase(std::string file_path) : db_file(std::move(file_path)) {
+        load_from_disk();
+    }
+
+    json read() const {
+        std::shared_lock<std::shared_mutex> lock(db_mutex);
+        return cache_data;
+    }
+
+    void update(std::function<void(json&)> transform_func) {
+        std::unique_lock<std::shared_mutex> lock(db_mutex);
+        transform_func(cache_data);
+        save_to_disk_internal();
     }
 };
 
@@ -83,35 +95,44 @@ int main() {
                 return crow::response(400, "Недопустимая роль. Разрешено только 'teacher' или 'student'");
             }
 
-            json users_data = users_db.read();
+            bool is_success = false;
+            std::string token = "";
 
-            for (auto& [id, user] : users_data["data"].items()) {
-                if (user["username"] == username) {
-                    return crow::response(400, "Пользователь с таким логином уже существует");
+            std::string password_hash = hash_password(password);
+
+            users_db.update([&](json& users_data) {
+                for (auto& [id, user] : users_data["data"].items()) {
+                    if (user["username"] == username) {
+                        return;
+                    }
                 }
+
+                int current_id = users_data["next_id"];
+                users_data["next_id"] = current_id + 1;
+                std::string user_id = std::to_string(current_id);
+
+                users_data["data"][user_id] = {
+                    {"username", username},
+                    {"password_hash", password_hash},
+                    {"role", role},
+                    {"firstname", firstname},
+                    {"lastname", lastname}
+                };
+
+                token = jwt::create()
+                    .set_issuer(ISSUER)
+                    .set_type("JWS")
+                    .set_payload_claim("user_id", jwt::claim(user_id))
+                    .set_payload_claim("role", jwt::claim(role))
+                    .set_expires_at(std::chrono::system_clock::now() + std::chrono::hours(24))
+                    .sign(jwt::algorithm::hs256{JWT_SECRET});
+
+                is_success = true;
+            });
+
+            if (!is_success) {
+                return crow::response(400, "Пользователь с таким логином уже существует");
             }
-
-            int current_id = users_data["next_id"];
-            users_data["next_id"] = current_id + 1;
-
-            std::string user_id = std::to_string(current_id);
-            users_data["data"][user_id] = {
-                {"username", username},
-                {"password_hash", hash_password(password)},
-                {"role", role},
-                {"firstname", firstname},
-                {"lastname", lastname}
-            };
-
-            users_db.write(users_data);
-
-            auto token = jwt::create()
-                .set_issuer(ISSUER)
-                .set_type("JWS")
-                .set_payload_claim("user_id", jwt::claim(user_id))
-                .set_payload_claim("role", jwt::claim(role))
-                .set_expires_at(std::chrono::system_clock::now() + std::chrono::hours(24))
-                .sign(jwt::algorithm::hs256{JWT_SECRET});
 
             json response_json = {
                 {"message", "Пользователь успешно зарегистрирован"},
@@ -249,21 +270,19 @@ int main() {
                 return crow::response(400, "Название теста и массив не могут быть пустыми");
             }
 
-            json tests_data = tests_db.read();
+            tests_db.update([&](json& tests_data) {
+                int current_id = tests_data["next_id"];
+                tests_data["next_id"] = current_id + 1;
 
-            int current_id = tests_data["next_id"];
-            tests_data["next_id"] = current_id + 1;
-
-            std::string test_id = std::to_string(current_id);
-            tests_data["data"][test_id] = {
-                {"title", title},
-                {"description", description},
-                {"teacher", user_id},
-                {"access", access},
-                {"questions", questions}
-            };
-
-            tests_db.write(tests_data);
+                std::string test_id = std::to_string(current_id);
+                tests_data["data"][test_id] = {
+                    {"title", title},
+                    {"description", description},
+                    {"teacher", user_id},
+                    {"access", access},
+                    {"questions", questions}
+                };
+            });
 
             return crow::response(201, "Тест успешно создан");
         }
