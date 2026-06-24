@@ -58,27 +58,11 @@ std::string hash_password(const std::string& password) {
     return hex_value;
 }
 
-std::string get_token_from_cookie(const std::string& cookie_header) {
-    std::string target = "token=";
-    size_t pos = cookie_header.find(target);
-    
-    if (pos == std::string::npos) return "";
-    
-    size_t start = pos + target.length();
-    size_t end = cookie_header.find(";", start);
-    
-    if (end == std::string::npos) {
-        return cookie_header.substr(start);
-    }
-    
-    return cookie_header.substr(start, end - start);
-}
-
 int main() {
     std::setlocale(LC_ALL, "Russian");
     crow::SimpleApp app;
 
-    CROW_ROUTE(app, "/api/register").methods(crow::HTTPMethod::Post)([](const crow::request& req) {
+    CROW_ROUTE(app, "/api/users/register").methods(crow::HTTPMethod::Post)([](const crow::request& req) {
         try {
             auto body = json::parse(req.body);
             std::string username = body.at("username");
@@ -129,17 +113,22 @@ int main() {
                 .set_expires_at(std::chrono::system_clock::now() + std::chrono::hours(24))
                 .sign(jwt::algorithm::hs256{JWT_SECRET});
 
-            crow::response res(201, "Пользователь успешно зарегистрирован");
-            res.add_header("Set-Cookie", "token=" + token + "; Path=/; HttpOnly; SameSite=Lax");
+            json response_json = {
+                {"message", "Пользователь успешно зарегистрирован"},
+                {"token", token}
+            };
+
+            crow::response res(201, response_json.dump());
+            res.add_header("Content-Type", "application/json");
             return res;
-        } 
+        }
         catch (const std::exception& e) {
             return crow::response(400, "Неверный формат запроса JSON");
         }
 
     });
 
-    CROW_ROUTE(app, "/api/login").methods(crow::HTTPMethod::Post)([](const crow::request& req) {
+    CROW_ROUTE(app, "/api/users/login").methods(crow::HTTPMethod::Post)([](const crow::request& req) {
         try {
             auto body = json::parse(req.body);
             std::string username = body.at("username");
@@ -171,8 +160,13 @@ int main() {
                 .set_expires_at(std::chrono::system_clock::now() + std::chrono::hours(24))
                 .sign(jwt::algorithm::hs256{JWT_SECRET});
 
-            crow::response res(200, "Успешный вход в систему");
-            res.add_header("Set-Cookie", "token=" + token + "; Path=/; HttpOnly; SameSite=Lax");
+            json response_json = {
+                {"message", "Успешный вход в систему"},
+                {"token", token}
+            };
+
+            crow::response res(200, response_json.dump());
+            res.add_header("Content-Type", "application/json");
             return res;
         } 
         catch (...) {
@@ -180,23 +174,15 @@ int main() {
         }
     });
 
-    CROW_ROUTE(app, "/api/logout").methods(crow::HTTPMethod::Post)([](const crow::request& req) {
-        crow::response res(200, "Успешный выход из системы");
-        
-        res.add_header("Set-Cookie", "token=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0");
-        
-        return res;
-    });
-
-    CROW_ROUTE(app, "/api/profile")([](const crow::request& req) {
-        std::string cookie_header = req.get_header_value("Cookie");
-        std::string token = get_token_from_cookie(cookie_header);
-
-        if (token.empty()) {
-            return crow::response(401, "Ошибка: требуется авторизация");
-        }
-
+    CROW_ROUTE(app, "/api/users/profile").methods(crow::HTTPMethod::Post)([](const crow::request& req) {
         try {
+            auto body = json::parse(req.body);
+            std::string token = body.at("token");
+
+            if (token.empty()) {
+                return crow::response(401, "Ошибка: требуется авторизация");
+            }
+            
             auto decoded = jwt::decode(token);
             auto verifier = jwt::verify()
                 .allow_algorithm(jwt::algorithm::hs256{JWT_SECRET})
@@ -222,7 +208,9 @@ int main() {
                 {"lastname", user_data["lastname"]}
             };
 
-            return crow::response(200, profile_info.dump());
+            crow::response res(200, profile_info.dump());
+            res.add_header("Content-Type", "application/json");
+            return res;
         } 
         catch (const std::exception& e) {
             return crow::response(401, "Сессия устарела или токен поврежден. Войдите заново.");
@@ -230,14 +218,14 @@ int main() {
     });
 
     CROW_ROUTE(app, "/api/tests/create").methods(crow::HTTPMethod::Post)([](const crow::request& req) {
-        std::string cookie_header = req.get_header_value("Cookie");
-        std::string token = get_token_from_cookie(cookie_header);
-
-        if (token.empty()) {
-            return crow::response(401, "Ошибка: требуется авторизация");
-        }
-
         try {
+            auto body = json::parse(req.body);
+            std::string token = body.at("token");
+
+            if (token.empty()) {
+                return crow::response(401, "Ошибка: требуется авторизация");
+            }
+
             auto decoded = jwt::decode(token);
             auto verifier = jwt::verify()
                 .allow_algorithm(jwt::algorithm::hs256{JWT_SECRET})
@@ -252,7 +240,6 @@ int main() {
                 return crow::response(403, "Доступ запрещен: создавать тесты могут только преподаватели");
             }
 
-            auto body = json::parse(req.body);
             std::string title = body.at("title");
             std::string description = body.at("description");
             auto questions = body.at("questions");
