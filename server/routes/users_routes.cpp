@@ -5,8 +5,8 @@
 
 using json = nlohmann::json;
 
-void setup_users_routes(crow::SimpleApp& app){
-    CROW_ROUTE(app, "/api/users/register").methods(crow::HTTPMethod::Post)([](const crow::request& req) {
+void setup_users_routes(crow::SimpleApp& app, JSONDatabase& users_db, JSONDatabase& tests_db){
+    CROW_ROUTE(app, "/api/users/register").methods(crow::HTTPMethod::Post)([&](const crow::request& req) {
         try {
             auto body = json::parse(req.body);
             std::string username = body.at("username");
@@ -79,7 +79,7 @@ void setup_users_routes(crow::SimpleApp& app){
         }
     });
 
-    CROW_ROUTE(app, "/api/users/login").methods(crow::HTTPMethod::Post)([](const crow::request& req) {
+    CROW_ROUTE(app, "/api/users/login").methods(crow::HTTPMethod::Post)([&](const crow::request& req) {
         try {
             auto body = json::parse(req.body);
             std::string username = body.at("username");
@@ -125,7 +125,7 @@ void setup_users_routes(crow::SimpleApp& app){
         }
     });
 
-    CROW_ROUTE(app, "/api/users/profile").methods(crow::HTTPMethod::Post)([](const crow::request& req) {
+    CROW_ROUTE(app, "/api/users/profile").methods(crow::HTTPMethod::Post)([&](const crow::request& req) {
         try {
             auto body = json::parse(req.body);
             

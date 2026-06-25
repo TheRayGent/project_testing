@@ -9,9 +9,6 @@ const std::string JWT_SECRET = CONFIG.JWT_SECRET;
 const std::string PASSWORD_SALT = CONFIG.PASSWORD_SALT;
 const std::string ISSUER = CONFIG.ISSUER;
 
-JSONDatabase users_db("users_db.json");
-JSONDatabase tests_db("tests_db.json");
-
 std::string hash_password(const std::string& password) {
     std::string salted_password = password + PASSWORD_SALT;
     std::cout << PASSWORD_SALT << std::endl;

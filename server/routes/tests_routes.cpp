@@ -5,8 +5,8 @@
 
 using json = nlohmann::json;
 
-void setup_tests_routes(crow::SimpleApp& app){
-    CROW_ROUTE(app, "/api/tests/create").methods(crow::HTTPMethod::Post)([](const crow::request& req) {
+void setup_tests_routes(crow::SimpleApp& app, JSONDatabase& users_db, JSONDatabase& tests_db){
+    CROW_ROUTE(app, "/api/tests/create").methods(crow::HTTPMethod::Post)([&](const crow::request& req) {
         try {
             auto body = json::parse(req.body);
             
@@ -85,7 +85,7 @@ void setup_tests_routes(crow::SimpleApp& app){
         }
     });
 
-    CROW_ROUTE(app, "/api/tests/<string>").methods(crow::HTTPMethod::Post)([](const crow::request& req, std::string test_id) {
+    CROW_ROUTE(app, "/api/tests/<string>").methods(crow::HTTPMethod::Post)([&](const crow::request& req, std::string test_id) {
         try {
             auto body = json::parse(req.body);
             
@@ -130,7 +130,7 @@ void setup_tests_routes(crow::SimpleApp& app){
             return crow::response(400, "Неверный формат запроса JSON");
         }
         catch (const std::exception& e) {
-            return crow::response(500, std::string("Внутренняя ошибка сервера: "));
+            return crow::response(500, std::string("Внутренняя ошибка сервера: ") + e.what());
         }
     });
 }

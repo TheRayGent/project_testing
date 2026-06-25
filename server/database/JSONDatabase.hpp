@@ -9,19 +9,30 @@
 using json = nlohmann::json;
 
 class JSONDatabase {
-private:
+protected:
     std::string db_file;
     mutable std::shared_mutex db_mutex;
     json cache_data;
 
-    void load_from_disk();
+    virtual void load_from_disk();
 
     void save_to_disk_internal() const; 
 
 public:
     explicit JSONDatabase(std::string file_path);
-
+    virtual ~JSONDatabase() = default;
+    
+    void init();
+    
     json read() const;
 
     void update(std::function<void(json&)> transform_func);
+};
+
+class UnindexedJSONDatabase : public JSONDatabase {
+protected:
+    void load_from_disk() override;
+
+public:
+    explicit UnindexedJSONDatabase(std::string file_path);
 };

@@ -64,7 +64,6 @@ add_library(utils STATIC
 )
 target_include_directories(utils PUBLIC utils)
 target_link_libraries(utils PUBLIC
-    database
     config
     picosha2
 )
@@ -74,8 +73,9 @@ add_library(users_routes STATIC
     routes/users_routes.hpp
 )
 target_include_directories(users_routes PUBLIC routes)
-target_link_libraries(users_routes PRIVATE
+target_link_libraries(users_routes PUBLIC
     utils
+    database
     nlohmann_json::nlohmann_json
     jwt-cpp::jwt-cpp
     Crow::Crow
@@ -86,8 +86,9 @@ add_library(tests_routes STATIC
     routes/tests_routes.hpp
 )
 target_include_directories(tests_routes PUBLIC routes)
-target_link_libraries(tests_routes PRIVATE
+target_link_libraries(tests_routes PUBLIC
     utils
+    database
     nlohmann_json::nlohmann_json
     jwt-cpp::jwt-cpp
     Crow::Crow
@@ -98,7 +99,6 @@ target_compile_definitions(project_testing PRIVATE CROW_ENABLE_SSL)
 target_link_libraries(project_testing PRIVATE
     tests_routes
     users_routes
-    Crow::Crow
 )
 
 if(MSVC)
