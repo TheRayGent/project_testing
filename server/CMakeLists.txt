@@ -49,33 +49,57 @@ add_library(database STATIC
     database/JSONDatabase.hpp
 )
 target_include_directories(database PUBLIC database)
-target_link_libraries(database PRIVATE nlohmann_json::nlohmann_json)
+target_link_libraries(database PUBLIC nlohmann_json::nlohmann_json)
 
 add_library(config STATIC 
     config/JSONConfig.cpp
     config/JSONConfig.hpp
 )
 target_include_directories(config PUBLIC config)
-target_link_libraries(config PRIVATE nlohmann_json::nlohmann_json)
+target_link_libraries(config PUBLIC nlohmann_json::nlohmann_json)
 
 add_library(utils STATIC 
-    utils/Routes.cpp
-    utils/Routes.hpp
+    utils/utils.cpp
+    utils/utils.hpp
 )
 target_include_directories(utils PUBLIC utils)
-target_link_libraries(utils PRIVATE
+target_link_libraries(utils PUBLIC
     database
     config
-    Crow::Crow 
-    nlohmann_json::nlohmann_json
-    jwt-cpp::jwt-cpp
     picosha2
 )
-# target_compile_options(utils PRIVATE /source-charset:.65001)
+
+add_library(users_routes STATIC 
+    utils/users_routes.cpp
+    utils/users_routes.hpp
+)
+target_include_directories(users_routes PUBLIC utils)
+target_link_libraries(users_routes PRIVATE
+    utils
+    nlohmann_json::nlohmann_json
+    jwt-cpp::jwt-cpp
+    Crow::Crow
+)
+
+add_library(tests_routes STATIC 
+    utils/tests_routes.cpp
+    utils/tests_routes.hpp
+)
+target_include_directories(tests_routes PUBLIC utils)
+target_link_libraries(tests_routes PRIVATE
+    utils
+    nlohmann_json::nlohmann_json
+    jwt-cpp::jwt-cpp
+    Crow::Crow
+)
 
 add_executable(project_testing main.cpp)
 target_compile_definitions(project_testing PRIVATE CROW_ENABLE_SSL)
-target_link_libraries(project_testing PRIVATE utils Crow::Crow)
+target_link_libraries(project_testing PRIVATE
+    tests_routes
+    users_routes
+    Crow::Crow
+)
 
 if(MSVC)
     target_compile_options(config PRIVATE /source-charset:.65001)
