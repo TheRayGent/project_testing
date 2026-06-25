@@ -1,6 +1,6 @@
 #include <crow.h>
-#include "utils/users_routes.hpp"
-#include "utils/tests_routes.hpp"
+#include "routes/users_routes.hpp"
+#include "routes/tests_routes.hpp"
 
 int main() {
     crow::SimpleApp app;

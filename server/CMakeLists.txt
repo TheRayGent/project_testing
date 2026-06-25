@@ -70,10 +70,10 @@ target_link_libraries(utils PUBLIC
 )
 
 add_library(users_routes STATIC 
-    utils/users_routes.cpp
-    utils/users_routes.hpp
+    routes/users_routes.cpp
+    routes/users_routes.hpp
 )
-target_include_directories(users_routes PUBLIC utils)
+target_include_directories(users_routes PUBLIC routes)
 target_link_libraries(users_routes PRIVATE
     utils
     nlohmann_json::nlohmann_json
@@ -82,10 +82,10 @@ target_link_libraries(users_routes PRIVATE
 )
 
 add_library(tests_routes STATIC 
-    utils/tests_routes.cpp
-    utils/tests_routes.hpp
+    routes/tests_routes.cpp
+    routes/tests_routes.hpp
 )
-target_include_directories(tests_routes PUBLIC utils)
+target_include_directories(tests_routes PUBLIC routes)
 target_link_libraries(tests_routes PRIVATE
     utils
     nlohmann_json::nlohmann_json
