@@ -1,25 +1,9 @@
 #include "Routes.hpp"
-#include <picosha2.h>
+#include "utils.hpp"
+#include <nlohmann/json.hpp>
 #include <jwt-cpp/jwt.h>
-#include "JSONConfig.hpp"
-#include "JSONDatabase.hpp"
 
-const JSONConfig CONFIG = load_config();
-
-const std::string JWT_SECRET = CONFIG.JWT_SECRET;
-const std::string PASSWORD_SALT = CONFIG.PASSWORD_SALT;
-const std::string ISSUER = CONFIG.ISSUER;
-
-JSONDatabase users_db("users_db.json");
-JSONDatabase tests_db("tests_db.json");
-
-std::string hash_password(const std::string& password) {
-    std::string salted_password = password + PASSWORD_SALT;
-    std::cout << PASSWORD_SALT << std::endl;
-    std::string hex_value;
-    picosha2::hash256_hex_string(salted_password, hex_value);
-    return hex_value;
-}
+using json = nlohmann::json;
 
 void setup_crow_routes(crow::SimpleApp& app){
     CROW_ROUTE(app, "/api/users/register").methods(crow::HTTPMethod::Post)([](const crow::request& req) {

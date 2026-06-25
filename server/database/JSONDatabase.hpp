@@ -1,5 +1,4 @@
-#ifndef JSON_DATABASE_HPP
-#define JSON_DATABASE_HPP
+#pragma once
 
 #include <nlohmann/json.hpp>
 #include <fstream>
@@ -7,9 +6,7 @@
 #include <string>
 #include <functional>
 
-
 using json = nlohmann::json;
-
 
 class JSONDatabase {
 private:
@@ -28,5 +25,3 @@ public:
 
     void update(std::function<void(json&)> transform_func);
 };
-
-#endif //JSON_DATABASE_HPP
