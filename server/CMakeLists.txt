@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.14)
+cmake_minimum_required(VERSION 3.15)
 project(ProjectTestingBackend LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 17)
@@ -44,18 +44,41 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(picosha2)
 
-add_executable(project_testing main.cpp)
+add_library(database STATIC 
+    database/JSONDatabase.cpp
+    database/JSONDatabase.hpp
+)
+target_include_directories(database PUBLIC database)
+target_link_libraries(database PRIVATE nlohmann_json::nlohmann_json)
 
-target_compile_definitions(project_testing PRIVATE CROW_ENABLE_SSL)
+add_library(config STATIC 
+    config/JSONConfig.cpp
+    config/JSONConfig.hpp
+)
+target_include_directories(config PUBLIC config)
+target_link_libraries(config PRIVATE nlohmann_json::nlohmann_json)
 
-target_link_libraries(project_testing PRIVATE 
+add_library(utils STATIC 
+    utils/Routes.cpp
+    utils/Routes.hpp
+)
+target_include_directories(utils PUBLIC utils)
+target_link_libraries(utils PRIVATE
+    database
+    config
     Crow::Crow 
     nlohmann_json::nlohmann_json
     jwt-cpp::jwt-cpp
     picosha2
 )
+# target_compile_options(utils PRIVATE /source-charset:.65001)
+
+add_executable(project_testing main.cpp)
+target_compile_definitions(project_testing PRIVATE CROW_ENABLE_SSL)
+target_link_libraries(project_testing PRIVATE utils Crow::Crow)
 
 if(MSVC)
+    target_compile_options(config PRIVATE /source-charset:.65001)
     target_include_directories(project_testing PRIVATE "C:/Program Files/OpenSSL-Win64/include")
     target_link_directories(project_testing PRIVATE "C:/Program Files/OpenSSL-Win64/lib/VC/x64/MT")
     target_link_libraries(project_testing PRIVATE libssl_static libcrypto_static user32 advapi32 crypt32)
