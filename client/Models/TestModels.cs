@@ -4,7 +4,8 @@ namespace Client.Models
 {
     public class QuestionDto
     {
-        public string QuestionText { get; set; }
-        public List<string> Options { get; set; } // Может быть 2, 3, 5 вариантов
+        // Добавляем = string.Empty, чтобы компилятор не ругался на возможный null
+        public string QuestionText { get; set; } = string.Empty;
+        public List<string> Options { get; set; } = new List<string>(); 
     }
 }

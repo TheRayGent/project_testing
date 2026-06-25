@@ -9,10 +9,8 @@ namespace Client.Services
 {
     public static class ApiService
     {
-        // Адрес сервера
         private static readonly HttpClient client = new HttpClient { BaseAddress = new Uri("http://localhost:5000/") };
 
-        // 1. ВХОД
         public static async Task<bool> LoginAsync(string username, string password)
         {
             var req = new { username, password };
@@ -23,9 +21,10 @@ namespace Client.Services
                 var response = await client.PostAsync("api/users/login", content);
                 if (response.IsSuccessStatusCode)
                 {
-                    string json = await response.Content.ReadAsStringAsync();
-                    using var doc = JsonDocument.Parse(json);
-                    Session.Token = doc.RootElement.GetProperty("token").GetString();
+                    string jsonString = await response.Content.ReadAsStringAsync();
+                    using var doc = JsonDocument.Parse(jsonString);
+                    // Добавлено ?? string.Empty для защиты от null
+                    Session.Token = doc.RootElement.GetProperty("token").GetString() ?? string.Empty; 
                     return true;
                 }
                 return false;
@@ -33,7 +32,6 @@ namespace Client.Services
             catch { return false; }
         }
 
-        // 2. ПОЛУЧЕНИЕ ПРОФИЛЯ (Узнаем кто это: teacher или student)
         public static async Task<bool> FetchProfileAsync()
         {
             var req = new { token = Session.Token };
@@ -42,16 +40,19 @@ namespace Client.Services
             var response = await client.PostAsync("api/users/profile", content);
             if (response.IsSuccessStatusCode)
             {
-                string json = await response.Content.ReadAsStringAsync();
-                using var doc = JsonDocument.Parse(json);
-                Session.Role = doc.RootElement.GetProperty("role").GetString();
-                Session.FullName = $"{doc.RootElement.GetProperty("firstname").GetString()} {doc.RootElement.GetProperty("lastname").GetString()}";
+                string jsonString = await response.Content.ReadAsStringAsync();
+                using var doc = JsonDocument.Parse(jsonString);
+                
+                Session.Role = doc.RootElement.GetProperty("role").GetString() ?? string.Empty;
+                string fName = doc.RootElement.GetProperty("firstname").GetString() ?? string.Empty;
+                string lName = doc.RootElement.GetProperty("lastname").GetString() ?? string.Empty;
+                
+                Session.FullName = $"{fName} {lName}";
                 return true;
             }
             return false;
         }
 
-        // 3. СОЗДАНИЕ ТЕСТА (Для учителя)
         public static async Task<bool> CreateTestAsync(string title, string desc, object[] questions)
         {
             var req = new 
