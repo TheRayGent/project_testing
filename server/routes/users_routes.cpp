@@ -6,8 +6,10 @@
 using json = nlohmann::json;
 
 void setup_users_routes(crow::SimpleApp& app, JSONDatabase& users_db, JSONDatabase& tests_db){
+    // Создание аккаунта
     CROW_ROUTE(app, "/api/users/register").methods(crow::HTTPMethod::Post)([&](const crow::request& req) {
         try {
+            // Чтение полей из тела
             auto body = json::parse(req.body);
             std::string username = body.at("username");
             std::string password = body.at("password");
@@ -15,18 +17,18 @@ void setup_users_routes(crow::SimpleApp& app, JSONDatabase& users_db, JSONDataba
             std::string firstname = body.at("firstname");
             std::string lastname = body.at("lastname");
 
+            // Проверка необходимых полей
             if (username.empty() || password.empty()) {
                 return crow::response(400, "Логин и пароль не могут быть пустыми");
             }
-
             if (firstname.empty() || lastname.empty()) {
                 return crow::response(400, "Имя и фамилия не могут быть пустыми");
             }
-
             if (role != "teacher" && role != "student") {
                 return crow::response(400, "Недопустимая роль. Разрешено только 'teacher' или 'student'");
             }
 
+            // Новая запись в бд
             bool is_success = false;
             std::string user_id = "";
             std::string password_hash = hash_password(password);
@@ -34,7 +36,7 @@ void setup_users_routes(crow::SimpleApp& app, JSONDatabase& users_db, JSONDataba
             users_db.update([&](json& users_data) {
                 for (auto& [id, user] : users_data["data"].items()) {
                     if (user["username"] == username) {
-                        return;
+                        return; // Пользователь с таким логином уже существует
                     }
                 }
 
@@ -57,6 +59,7 @@ void setup_users_routes(crow::SimpleApp& app, JSONDatabase& users_db, JSONDataba
                 return crow::response(400, "Пользователь с таким логином уже существует");
             }
 
+            // Создание токена
             std::string token = jwt::create()
                     .set_issuer(ISSUER)
                     .set_type("JWS")
@@ -65,6 +68,7 @@ void setup_users_routes(crow::SimpleApp& app, JSONDatabase& users_db, JSONDataba
                     .set_expires_at(std::chrono::system_clock::now() + std::chrono::hours(24))
                     .sign(jwt::algorithm::hs256{JWT_SECRET});
 
+            // Создание ответа
             json response_json = {
                 {"message", "Пользователь успешно зарегистрирован"},
                 {"token", token}
@@ -79,14 +83,17 @@ void setup_users_routes(crow::SimpleApp& app, JSONDatabase& users_db, JSONDataba
         }
     });
 
+    // Вход в аккаунт
     CROW_ROUTE(app, "/api/users/login").methods(crow::HTTPMethod::Post)([&](const crow::request& req) {
         try {
+            // Чтение полей из тела
             auto body = json::parse(req.body);
             std::string username = body.at("username");
             std::string password = body.at("password");
             std::string found_id = "";
             std::string role = "";
 
+            // Чтение бд
             json users_data = users_db.read();
             
             for (auto& [id, user] : users_data["data"].items()) {
@@ -103,6 +110,7 @@ void setup_users_routes(crow::SimpleApp& app, JSONDatabase& users_db, JSONDataba
                 return crow::response(401, "Неверный логин или пароль");
             }
 
+            // Создание токена
             auto token = jwt::create()
                 .set_issuer(ISSUER)
                 .set_type("JWS")
@@ -111,6 +119,7 @@ void setup_users_routes(crow::SimpleApp& app, JSONDatabase& users_db, JSONDataba
                 .set_expires_at(std::chrono::system_clock::now() + std::chrono::hours(24))
                 .sign(jwt::algorithm::hs256{JWT_SECRET});
 
+            // Создание ответа
             json response_json = {
                 {"message", "Успешный вход в систему"},
                 {"token", token}
@@ -125,8 +134,10 @@ void setup_users_routes(crow::SimpleApp& app, JSONDatabase& users_db, JSONDataba
         }
     });
 
+    // Получение подробной информации пользователя
     CROW_ROUTE(app, "/api/users/profile").methods(crow::HTTPMethod::Post)([&](const crow::request& req) {
         try {
+            // Попытка чтения токена из тела
             auto body = json::parse(req.body);
             
             if (!body.contains("token")) {
@@ -139,6 +150,7 @@ void setup_users_routes(crow::SimpleApp& app, JSONDatabase& users_db, JSONDataba
                 return crow::response(401, "Ошибка: требуется авторизация");
             }
             
+            // Расшифровка токена
             auto decoded = jwt::decode(token);
             auto verifier = jwt::verify()
                 .allow_algorithm(jwt::algorithm::hs256{JWT_SECRET})
@@ -146,8 +158,10 @@ void setup_users_routes(crow::SimpleApp& app, JSONDatabase& users_db, JSONDataba
             
             verifier.verify(decoded);
 
-            std::string user_id = decoded.get_payload_claim("user_id").as_string();
+            std::string user_id = decoded.get_payload_claim("user_id").as_string(); // Получение user_id из токена
             
+
+            // Чтение бд
             json users_data = users_db.read();
             
             if (!users_data["data"].contains(user_id)) {
@@ -156,6 +170,7 @@ void setup_users_routes(crow::SimpleApp& app, JSONDatabase& users_db, JSONDataba
 
             auto user_data = users_data["data"][user_id];
 
+            // Создание ответа
             json profile_info = {
                 {"id", user_id},
                 {"user", user_data["username"]},
