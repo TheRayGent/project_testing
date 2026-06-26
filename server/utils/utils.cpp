@@ -3,12 +3,14 @@
 #include "JSONConfig.hpp"
 #include "utils.hpp"
 
+// Получения данных из конфига
 const JSONConfig CONFIG = load_config();
 
 const std::string JWT_SECRET = CONFIG.JWT_SECRET;
 const std::string PASSWORD_SALT = CONFIG.PASSWORD_SALT;
 const std::string ISSUER = CONFIG.ISSUER;
 
+// Функция хеширования пароля
 std::string hash_password(const std::string& password) {
     std::string salted_password = password + PASSWORD_SALT;
     std::cout << PASSWORD_SALT << std::endl;

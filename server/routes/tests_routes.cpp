@@ -6,8 +6,11 @@
 using json = nlohmann::json;
 
 void setup_tests_routes(crow::SimpleApp& app, JSONDatabase& users_db, JSONDatabase& tests_db){
+    // Создание нового теста
     CROW_ROUTE(app, "/api/tests/create").methods(crow::HTTPMethod::Post)([&](const crow::request& req) {
         try {
+
+            // Попытка чтения токена из тела
             auto body = json::parse(req.body);
             
             if (!body.contains("token")) {
@@ -20,6 +23,7 @@ void setup_tests_routes(crow::SimpleApp& app, JSONDatabase& users_db, JSONDataba
                 return crow::response(401, "Ошибка: требуется авторизация");
             }
 
+            // Расшифровка токена
             auto decoded = jwt::decode(token);
             auto verifier = jwt::verify()
                 .allow_algorithm(jwt::algorithm::hs256{JWT_SECRET})
@@ -27,6 +31,7 @@ void setup_tests_routes(crow::SimpleApp& app, JSONDatabase& users_db, JSONDataba
             
             verifier.verify(decoded);
 
+            // Получение role и user_id из токена
             std::string role = decoded.get_payload_claim("role").as_string();
             std::string user_id = decoded.get_payload_claim("user_id").as_string();
 
@@ -34,11 +39,12 @@ void setup_tests_routes(crow::SimpleApp& app, JSONDatabase& users_db, JSONDataba
                 return crow::response(403, "Доступ запрещен: создавать тесты могут только преподаватели");
             }
 
+            // Получение полей теста из токена
             std::string title = body.at("title");
             std::string description = body.at("description");
             auto questions = body.at("questions");
-            auto access = body.at("access");
 
+            // Проверка необходимых полей
             if (title.empty()) {
                 return crow::response(400, "Название теста не может быть пустым");
             }
@@ -59,14 +65,15 @@ void setup_tests_routes(crow::SimpleApp& app, JSONDatabase& users_db, JSONDataba
                 }
             }
 
+            // Создание новой записи
             json new_test = {
                 {"title", title},
                 {"description", description},
                 {"teacher", user_id},
-                {"access", access},
                 {"questions", questions}
             };
 
+            // Запись нового записи в бд
             tests_db.update([&, new_test = std::move(new_test)](json& tests_data) {
                 int current_id = tests_data["next_id"];
                 tests_data["next_id"] = current_id + 1;
@@ -75,6 +82,7 @@ void setup_tests_routes(crow::SimpleApp& app, JSONDatabase& users_db, JSONDataba
                 tests_data["data"][test_id] = std::move(new_test);
             });
 
+            // Ответ
             return crow::response(201, "Тест успешно создан");
         }
         catch (const json::exception& e) {
@@ -85,8 +93,11 @@ void setup_tests_routes(crow::SimpleApp& app, JSONDatabase& users_db, JSONDataba
         }
     });
 
+    // Получение теста по id
     CROW_ROUTE(app, "/api/tests/<string>").methods(crow::HTTPMethod::Post)([&](const crow::request& req, std::string test_id) {
         try {
+
+            // Попытка чтения токена из тела
             auto body = json::parse(req.body);
             
             if (!body.contains("token")) {
@@ -99,6 +110,7 @@ void setup_tests_routes(crow::SimpleApp& app, JSONDatabase& users_db, JSONDataba
                 return crow::response(401, "Ошибка: требуется авторизация");
             }
 
+            // Расшифровка токена
             auto decoded = jwt::decode(token);
             auto verifier = jwt::verify()
                 .allow_algorithm(jwt::algorithm::hs256{JWT_SECRET})
@@ -106,25 +118,28 @@ void setup_tests_routes(crow::SimpleApp& app, JSONDatabase& users_db, JSONDataba
             
             verifier.verify(decoded);
 
+            // Получение role и user_id из токена
             std::string role = decoded.get_payload_claim("role").as_string();
             std::string user_id = decoded.get_payload_claim("user_id").as_string();
 
+            // Чтение бд
             json tests_data = tests_db.read();
 
             if (!tests_data["data"].contains(test_id)) {
                 return crow::response(404, "Тест с таким ID не найден");
             }
 
+            // Получение данных теста
             json test = tests_data["data"][test_id];
 
             if (!test.contains("teacher") || test["teacher"].get<std::string>() != user_id) {
                 return crow::response(403, "У вас нет доступа к этому тесту");
             }
 
+            // Создание ответа
             crow::response res(200, test.dump());
             res.add_header("Content-Type", "application/json");
             return res;
-
         }
         catch (const json::exception& e) {
             return crow::response(400, "Неверный формат запроса JSON");
