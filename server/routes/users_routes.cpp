@@ -49,7 +49,9 @@ void setup_users_routes(crow::SimpleApp& app, JSONDatabase& users_db, JSONDataba
                     {"password_hash", password_hash},
                     {"role", role},
                     {"firstname", firstname},
-                    {"lastname", lastname}
+                    {"lastname", lastname},
+                    {"available_tests", json::array()},
+                    {"created_tests", json::array()}
                 };
 
                 is_success = true;
@@ -78,8 +80,11 @@ void setup_users_routes(crow::SimpleApp& app, JSONDatabase& users_db, JSONDataba
             res.add_header("Content-Type", "application/json");
             return res;
         }
-        catch (const std::exception& e) {
+        catch (const json::exception& e) {
             return crow::response(400, "Неверный формат запроса JSON");
+        }
+        catch (const std::exception& e) {
+            return crow::response(500, std::string("Внутренняя ошибка сервера: ") + e.what());
         }
     });
 
@@ -129,8 +134,11 @@ void setup_users_routes(crow::SimpleApp& app, JSONDatabase& users_db, JSONDataba
             res.add_header("Content-Type", "application/json");
             return res;
         } 
-        catch (...) {
-            return crow::response(400, "Ошибка обработки запроса");
+        catch (const json::exception& e) {
+            return crow::response(400, "Неверный формат запроса JSON");
+        }
+        catch (const std::exception& e) {
+            return crow::response(500, std::string("Внутренняя ошибка сервера: ") + e.what());
         }
     });
 
@@ -155,12 +163,10 @@ void setup_users_routes(crow::SimpleApp& app, JSONDatabase& users_db, JSONDataba
             auto verifier = jwt::verify()
                 .allow_algorithm(jwt::algorithm::hs256{JWT_SECRET})
                 .with_issuer(ISSUER);
-            
             verifier.verify(decoded);
 
             std::string user_id = decoded.get_payload_claim("user_id").as_string(); // Получение user_id из токена
             
-
             // Чтение бд
             json users_data = users_db.read();
             
@@ -176,15 +182,23 @@ void setup_users_routes(crow::SimpleApp& app, JSONDatabase& users_db, JSONDataba
                 {"user", user_data["username"]},
                 {"role", user_data["role"]},
                 {"firstname", user_data["firstname"]},
-                {"lastname", user_data["lastname"]}
+                {"lastname", user_data["lastname"]},
+                {"available_tests", user_data["available_tests"]},
+                {"created_tests", user_data["created_tests"]}
             };
 
             crow::response res(200, profile_info.dump());
             res.add_header("Content-Type", "application/json");
             return res;
         } 
-        catch (const std::exception& e) {
+        catch (const json::exception& e) {
+            return crow::response(400, "Неверный формат запроса JSON");
+        }
+        catch (const jwt::error::token_verification_error& e) {
             return crow::response(401, "Сессия устарела или токен поврежден. Войдите заново.");
+        }
+        catch (const std::exception& e) {
+            return crow::response(500, std::string("Внутренняя ошибка сервера: ") + e.what());
         }
     });
 }

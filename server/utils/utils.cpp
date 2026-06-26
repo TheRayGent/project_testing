@@ -13,7 +13,6 @@ const std::string ISSUER = CONFIG.ISSUER;
 // Функция хеширования пароля
 std::string hash_password(const std::string& password) {
     std::string salted_password = password + PASSWORD_SALT;
-    std::cout << PASSWORD_SALT << std::endl;
     std::string hex_value;
     picosha2::hash256_hex_string(salted_password, hex_value);
     return hex_value;
