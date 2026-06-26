@@ -18,12 +18,13 @@ namespace Client.Views
             // Генерируем массив вопросов в том виде, в котором его ждет твой C++ код
             var questions = new object[]
             {
-                new { text = "Вопрос 1", options = new[] {"A", "B"}, correct = 1 },
-                new { text = "Вопрос 2", options = new[] {"Да", "Нет", "Возможно"}, correct = 0 }
+                // Ключи text, options и correct_option должны в точности совпадать с C++
+                new { text = "Что такое C++?", options = new[] {"Язык", "Змея"}, correct_option = 0 },
+                new { text = "Сколько байт в int?", options = new[] {"1", "2", "4", "8"}, correct_option = 2 }
             };
 
             bool ok = await ApiService.CreateTestAsync(TestTitle.Text, TestDesc.Text, questions);
-            MessageBox.Show(ok ? "Тест успешно создан в tests_db.json!" : "Ошибка создания!");
+            MessageBox.Show(ok ? "Тест успешно создан!" : "Ошибка создания!");
         }
         private void Logout_Click(object sender, RoutedEventArgs e)
         {

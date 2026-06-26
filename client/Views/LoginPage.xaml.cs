@@ -29,5 +29,9 @@ namespace Client.Views
             
             ErrorText.Text = "Ошибка входа. Проверьте логин/пароль.";
         }
+        private void GoToRegister_Click(object sender, RoutedEventArgs e)
+        {
+            NavigationService.Navigate(new RegisterPage());
+        }
     }
 }

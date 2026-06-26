@@ -6,6 +6,7 @@ namespace Client.Services
 {
     public static class TokenStorage
     {
+        //Путь
         private static readonly string FolderPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "TestingSystem");
         private static readonly string FilePath = Path.Combine(FolderPath, "session.json");
 

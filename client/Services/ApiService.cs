@@ -11,6 +11,7 @@ namespace Client.Services
     {
         private static readonly HttpClient client = new HttpClient { BaseAddress = new Uri("http://localhost:5000/") };
 
+        //1 Вход
         public static async Task<bool> LoginAsync(string username, string password)
         {
             var req = new { username, password };
@@ -31,7 +32,8 @@ namespace Client.Services
             }
             catch { return false; }
         }
-
+        
+        // 2. Получение профиля
         public static async Task<bool> FetchProfileAsync()
         {
             var req = new { token = Session.Token };
@@ -52,7 +54,8 @@ namespace Client.Services
             }
             return false;
         }
-
+        
+        // Создание теста
         public static async Task<bool> CreateTestAsync(string title, string desc, object[] questions)
         {
             var req = new 
@@ -67,5 +70,29 @@ namespace Client.Services
             var response = await client.PostAsync("api/tests/create", content);
             return response.IsSuccessStatusCode;
         }
+
+        
+        public static async Task<bool> RegisterAsync(string user, string pass, string fname, string lname, string role)
+        {
+            var req = new { username = user, password = pass, firstname = fname, lastname = lname, role = role };
+            var content = new StringContent(JsonSerializer.Serialize(req), Encoding.UTF8, "application/json");
+
+            try
+            {
+                var response = await client.PostAsync("api/users/register", content);
+                if (response.IsSuccessStatusCode)
+                {
+                    string jsonString = await response.Content.ReadAsStringAsync();
+                    using var doc = JsonDocument.Parse(jsonString);
+                    Session.Token = doc.RootElement.GetProperty("token").GetString() ?? string.Empty;
+                    return true;
+                }
+                return false;
+            }
+            catch { return false; }
+        }
     }
+    
+    
+    
 }
