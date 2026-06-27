@@ -30,7 +30,7 @@ void setup_tests_routes(crow::SimpleApp& app, JSONDatabase& users_db, JSONDataba
             try {
                 verifier.verify(decoded);
             }
-            catch (const const std::exception& e) {
+            catch (const std::exception& e) {
                 return crow::response(401, "Сессия устарела или токен поврежден. Войдите заново.");
             }
 
@@ -132,7 +132,7 @@ void setup_tests_routes(crow::SimpleApp& app, JSONDatabase& users_db, JSONDataba
             try {
                 verifier.verify(decoded);
             }
-            catch (const const std::exception& e) {
+            catch (const std::exception& e) {
                 return crow::response(401, "Сессия устарела или токен поврежден. Войдите заново.");
             }
 
@@ -192,7 +192,7 @@ void setup_tests_routes(crow::SimpleApp& app, JSONDatabase& users_db, JSONDataba
             try {
                 verifier.verify(decoded);
             }
-            catch (const const std::exception& e) {
+            catch (const std::exception& e) {
                 return crow::response(401, "Сессия устарела или токен поврежден. Войдите заново.");
             }
 
