@@ -5,6 +5,64 @@
 
 using json = nlohmann::json;
 
+crow::response get_user_profile_info(const crow::request& req, JSONDatabase& users_db, std::string target_user_id){
+    // Попытка чтения токена из тела
+    auto body = json::parse(req.body);
+    if (!body.contains("token")) {
+        return crow::response(400, "Ошибка: отсутствует поле token в запросе");
+    }
+    
+    std::string token = body.at("token");
+    if (token.empty()) {
+        return crow::response(401, "Ошибка: требуется авторизация");
+    }
+    
+    // Расшифровка токена
+    auto decoded = jwt::decode(token);
+    auto verifier = jwt::verify()
+        .allow_algorithm(jwt::algorithm::hs256{JWT_SECRET})
+        .with_issuer(ISSUER);
+    try {
+        verifier.verify(decoded);
+    }
+    catch (const const std::exception& e) {
+        return crow::response(401, "Сессия устарела или токен поврежден. Войдите заново.");
+    }     
+    
+    // Получение user_id
+    std::string user_id;
+    if (target_user_id == ""){
+        user_id = decoded.get_payload_claim("user_id").as_string();
+    }
+    else{
+        user_id = target_user_id;
+    }
+    
+    // Чтение бд
+    json users_data = users_db.read();
+    
+    if (!users_data["data"].contains(user_id)) {
+        return crow::response(404, "Пользователь не найден");
+    }
+
+    auto user_data = users_data["data"][user_id];
+
+    // Создание ответа
+    json profile_info = {
+        {"id", user_id},
+        {"user", user_data["username"]},
+        {"role", user_data["role"]},
+        {"firstname", user_data["firstname"]},
+        {"lastname", user_data["lastname"]},
+        {"available_tests", user_data["available_tests"]},
+        {"created_tests", user_data["created_tests"]}
+    };
+
+    crow::response res(200, profile_info.dump());
+    res.add_header("Content-Type", "application/json");
+    return res;
+}
+
 void setup_users_routes(crow::SimpleApp& app, JSONDatabase& users_db, JSONDatabase& tests_db){
     // Создание аккаунта
     CROW_ROUTE(app, "/api/users/register").methods(crow::HTTPMethod::Post)([&](const crow::request& req) {
@@ -142,60 +200,30 @@ void setup_users_routes(crow::SimpleApp& app, JSONDatabase& users_db, JSONDataba
         }
     });
 
-    // Получение подробной информации пользователя
+    // Получение информации о пользователе
     CROW_ROUTE(app, "/api/users/profile").methods(crow::HTTPMethod::Post)([&](const crow::request& req) {
         try {
-            // Попытка чтения токена из тела
-            auto body = json::parse(req.body);
-            
-            if (!body.contains("token")) {
-                return crow::response(400, "Ошибка: отсутствует поле token в запросе");
-            }
-            
-            std::string token = body.at("token");
-
-            if (token.empty()) {
-                return crow::response(401, "Ошибка: требуется авторизация");
-            }
-            
-            // Расшифровка токена
-            auto decoded = jwt::decode(token);
-            auto verifier = jwt::verify()
-                .allow_algorithm(jwt::algorithm::hs256{JWT_SECRET})
-                .with_issuer(ISSUER);
-            verifier.verify(decoded);
-
-            std::string user_id = decoded.get_payload_claim("user_id").as_string(); // Получение user_id из токена
-            
-            // Чтение бд
-            json users_data = users_db.read();
-            
-            if (!users_data["data"].contains(user_id)) {
-                return crow::response(404, "Пользователь не найден");
-            }
-
-            auto user_data = users_data["data"][user_id];
-
-            // Создание ответа
-            json profile_info = {
-                {"id", user_id},
-                {"user", user_data["username"]},
-                {"role", user_data["role"]},
-                {"firstname", user_data["firstname"]},
-                {"lastname", user_data["lastname"]},
-                {"available_tests", user_data["available_tests"]},
-                {"created_tests", user_data["created_tests"]}
-            };
-
-            crow::response res(200, profile_info.dump());
-            res.add_header("Content-Type", "application/json");
+            // Повторный код вынесен в отдельную функцию
+            crow::response res = get_user_profile_info(req, users_db, "");
             return res;
         } 
         catch (const json::exception& e) {
             return crow::response(400, "Неверный формат запроса JSON");
         }
-        catch (const jwt::error::token_verification_error& e) {
-            return crow::response(401, "Сессия устарела или токен поврежден. Войдите заново.");
+        catch (const std::exception& e) {
+            return crow::response(500, std::string("Внутренняя ошибка сервера: ") + e.what());
+        }
+    });
+
+    // Получение данных пользователя по id
+    CROW_ROUTE(app, "/api/users/<string>").methods(crow::HTTPMethod::Post)([&](const crow::request& req, std::string target_user_id) {
+        try {
+            // Повторный код вынесен в отдельную функцию
+            crow::response res = get_user_profile_info(req, users_db, target_user_id);
+            return res;
+        } 
+        catch (const json::exception& e) {
+            return crow::response(400, "Неверный формат запроса JSON");
         }
         catch (const std::exception& e) {
             return crow::response(500, std::string("Внутренняя ошибка сервера: ") + e.what());

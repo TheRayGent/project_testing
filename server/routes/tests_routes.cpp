@@ -27,7 +27,12 @@ void setup_tests_routes(crow::SimpleApp& app, JSONDatabase& users_db, JSONDataba
             auto verifier = jwt::verify()
                 .allow_algorithm(jwt::algorithm::hs256{JWT_SECRET})
                 .with_issuer(ISSUER);
-            verifier.verify(decoded);
+            try {
+                verifier.verify(decoded);
+            }
+            catch (const const std::exception& e) {
+                return crow::response(401, "Сессия устарела или токен поврежден. Войдите заново.");
+            }
 
             // Получение role и user_id из токена
             std::string role = decoded.get_payload_claim("role").as_string();
@@ -97,9 +102,6 @@ void setup_tests_routes(crow::SimpleApp& app, JSONDatabase& users_db, JSONDataba
         catch (const json::exception& e) {
             return crow::response(400, "Неверный формат запроса JSON");
         }
-        catch (const jwt::error::token_verification_error& e) {
-            return crow::response(401, "Сессия устарела или токен поврежден. Войдите заново.");
-        }
         catch (const std::exception& e) {
             return crow::response(500, std::string("Внутренняя ошибка сервера: ") + e.what());
         }
@@ -127,7 +129,12 @@ void setup_tests_routes(crow::SimpleApp& app, JSONDatabase& users_db, JSONDataba
             auto verifier = jwt::verify()
                 .allow_algorithm(jwt::algorithm::hs256{JWT_SECRET})
                 .with_issuer(ISSUER);
-            verifier.verify(decoded);
+            try {
+                verifier.verify(decoded);
+            }
+            catch (const const std::exception& e) {
+                return crow::response(401, "Сессия устарела или токен поврежден. Войдите заново.");
+            }
 
             // Получение role и user_id из токена
             std::string role = decoded.get_payload_claim("role").as_string();
@@ -154,9 +161,6 @@ void setup_tests_routes(crow::SimpleApp& app, JSONDatabase& users_db, JSONDataba
         }
         catch (const json::exception& e) {
             return crow::response(400, "Неверный формат запроса JSON");
-        }
-        catch (const jwt::error::token_verification_error& e) {
-            return crow::response(401, "Сессия устарела или токен поврежден. Войдите заново.");
         }
         catch (const std::exception& e) {
             return crow::response(500, std::string("Внутренняя ошибка сервера: ") + e.what());
@@ -185,7 +189,12 @@ void setup_tests_routes(crow::SimpleApp& app, JSONDatabase& users_db, JSONDataba
             auto verifier = jwt::verify()
                 .allow_algorithm(jwt::algorithm::hs256{JWT_SECRET})
                 .with_issuer(ISSUER);
-            verifier.verify(decoded);
+            try {
+                verifier.verify(decoded);
+            }
+            catch (const const std::exception& e) {
+                return crow::response(401, "Сессия устарела или токен поврежден. Войдите заново.");
+            }
 
             // Получение role и user_id из токена
             std::string role = decoded.get_payload_claim("role").as_string();
@@ -240,9 +249,6 @@ void setup_tests_routes(crow::SimpleApp& app, JSONDatabase& users_db, JSONDataba
         }
         catch (const json::exception& e) {
             return crow::response(400, "Неверный формат запроса JSON");
-        }
-        catch (const jwt::error::token_verification_error& e) {
-            return crow::response(401, "Сессия устарела или токен поврежден. Войдите заново.");
         }
         catch (const std::exception& e) {
             return crow::response(500, std::string("Внутренняя ошибка сервера: ") + e.what());
