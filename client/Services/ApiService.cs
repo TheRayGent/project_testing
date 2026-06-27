@@ -11,7 +11,7 @@ namespace Client.Services
     {
         private static readonly HttpClient client = new HttpClient { BaseAddress = new Uri("http://localhost:5000/") };
 
-        //1 Вход
+        // 1. Вход
         public static async Task<bool> LoginAsync(string username, string password)
         {
             var req = new { username, password };
@@ -44,18 +44,28 @@ namespace Client.Services
             {
                 string jsonString = await response.Content.ReadAsStringAsync();
                 using var doc = JsonDocument.Parse(jsonString);
-                
+        
                 Session.Role = doc.RootElement.GetProperty("role").GetString() ?? string.Empty;
                 string fName = doc.RootElement.GetProperty("firstname").GetString() ?? string.Empty;
                 string lName = doc.RootElement.GetProperty("lastname").GetString() ?? string.Empty;
-                
                 Session.FullName = $"{fName} {lName}";
+
+                // ЧИТАЕМ МАССИВ ДОСТУПНЫХ ТЕСТОВ ИЗ БЕКЕНДА
+                Session.AvailableTests.Clear();
+                if (doc.RootElement.TryGetProperty("available_tests", out var testsArray) && testsArray.ValueKind == JsonValueKind.Array)
+                {
+                    foreach (var t in testsArray.EnumerateArray())
+                    {
+                        Session.AvailableTests.Add(t.GetString() ?? string.Empty);
+                    }
+                }
                 return true;
             }
             return false;
         }
+
         
-        // Создание теста
+        // 3. Создание теста
         public static async Task<bool> CreateTestAsync(string title, string desc, object[] questions)
         {
             var req = new 
@@ -91,7 +101,49 @@ namespace Client.Services
             }
             catch { return false; }
         }
+        
+        
+        //4. Получить список всех тестов
+        public static async Task<List<TestItemDto>> GetTestsListAsync()
+        {
+            var req = new { token = Session.Token };
+            var content = new StringContent(JsonSerializer.Serialize(req), Encoding.UTF8, "application/json");
+
+            try
+            {
+                var response = await client.PostAsync("api/tests/list", content);
+                if (response.IsSuccessStatusCode)
+                {
+                    string json = await response.Content.ReadAsStringAsync();
+                    return JsonSerializer.Deserialize<List<TestItemDto>>(json, new JsonSerializerOptions { PropertyNameCaseInsensitive = true }) ?? new List<TestItemDto>();
+                }
+            }
+            catch { }
+            return new List<TestItemDto>();
+        }
+
+        //5. Получить конкретный тест по ID
+        public static async Task<TestItemDto?> GetTestByIdAsync(string testId)
+        {
+            var req = new { token = Session.Token };
+            var content = new StringContent(JsonSerializer.Serialize(req), Encoding.UTF8, "application/json");
+
+            try
+            {
+                var response = await client.PostAsync($"api/tests/{testId}", content);
+                if (response.IsSuccessStatusCode)
+                {
+                    string json = await response.Content.ReadAsStringAsync();
+                    var testDto = JsonSerializer.Deserialize<TestItemDto>(json, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+                    if (testDto != null) testDto.Id = testId; // Сохраняем ID
+                    return testDto;
+                }
+            }
+            catch { }
+            return null;
+        }
     }
+    
     
     
     
