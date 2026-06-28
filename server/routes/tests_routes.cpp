@@ -5,7 +5,7 @@
 
 using json = nlohmann::json;
 
-void setup_tests_routes(crow::SimpleApp& app, JSONDatabase& users_db, JSONDatabase& tests_db){
+void setup_tests_routes(crow::SimpleApp& app, JSONDatabase& users_db, JSONDatabase& tests_db, UnindexedJSONDatabase& results_db){
     
     // Создание нового теста
     CROW_ROUTE(app, "/api/tests/create").methods(crow::HTTPMethod::Post)([&](const crow::request& req) {
@@ -246,6 +246,127 @@ void setup_tests_routes(crow::SimpleApp& app, JSONDatabase& users_db, JSONDataba
 
             // Создание ответа
             return crow::response(200, "Доступ к тесту успешно выдан");
+        }
+        catch (const json::exception& e) {
+            return crow::response(400, "Неверный формат запроса JSON");
+        }
+        catch (const std::exception& e) {
+            return crow::response(500, std::string("Внутренняя ошибка сервера: ") + e.what());
+        }
+    });
+
+    // Сохранение ресультата пользователя о прохождении теста
+    CROW_ROUTE(app, "/api/tests/<string>/set_result").methods(crow::HTTPMethod::Post)([&](const crow::request& req, std::string test_id) {
+        try {
+            // Попытка чтения токена из тела
+            auto body = json::parse(req.body);
+
+            if (!body.contains("token")) {
+                return crow::response(400, "Ошибка: отсутствует поле token в запросе");
+            }
+            if (!body.contains("result")) {
+                return crow::response(400, "Ошибка: отсутствует поле result в запросе");
+            }
+            std::string token = body.at("token");
+            if (token.empty()) {
+                return crow::response(401, "Ошибка: требуется авторизация");
+            }
+
+            // Расшифровка токена
+            auto decoded = jwt::decode(token);
+            auto verifier = jwt::verify()
+                .allow_algorithm(jwt::algorithm::hs256{JWT_SECRET})
+                .with_issuer(ISSUER);
+            try {
+                verifier.verify(decoded);
+            }
+            catch (const std::exception& e) {
+                return crow::response(401, "Сессия устарела или токен поврежден. Войдите заново.");
+            }
+
+            // Получение user_id из токена
+            std::string user_id = decoded.get_payload_claim("user_id").as_string();
+
+            std::string result = body.at("result");
+            if (result.empty()) {
+                return crow::response(400, "Результат не может быть пустым");
+            }
+
+            // Проверка что тест существует
+            json tests_data = tests_db.read();
+            if (!tests_data["data"].contains(test_id)){
+                return crow::response(404, "Тест с таким ID не найден");
+            }
+
+            // Сохранение результата в бд
+            results_db.update([&](json& results_data) {
+                if (!results_data.contains(test_id)){
+                    results_data[test_id] = json::object();
+                }
+                results_data[test_id][user_id] = result;
+            });
+
+            // Создание ответа
+            return crow::response(200, "Результат успешно сохранён");
+        }
+        catch (const json::exception& e) {
+            return crow::response(400, "Неверный формат запроса JSON");
+        }
+        catch (const std::exception& e) {
+            return crow::response(500, std::string("Внутренняя ошибка сервера: ") + e.what());
+        }
+    });
+
+    // Получение результатов теста
+    CROW_ROUTE(app, "/api/tests/<string>/results").methods(crow::HTTPMethod::Post)([&](const crow::request& req, std::string test_id) {
+        try {
+            // Попытка чтения токена из тела
+            auto body = json::parse(req.body);
+
+            if (!body.contains("token")) {
+                return crow::response(400, "Ошибка: отсутствует поле token в запросе");
+            }
+            std::string token = body.at("token");
+            if (token.empty()) {
+                return crow::response(401, "Ошибка: требуется авторизация");
+            }
+
+            // Расшифровка токена
+            auto decoded = jwt::decode(token);
+            auto verifier = jwt::verify()
+                .allow_algorithm(jwt::algorithm::hs256{JWT_SECRET})
+                .with_issuer(ISSUER);
+            try {
+                verifier.verify(decoded);
+            }
+            catch (const std::exception& e) {
+                return crow::response(401, "Сессия устарела или токен поврежден. Войдите заново.");
+            }
+
+            // Получение user_id из токена
+            std::string user_id = decoded.get_payload_claim("user_id").as_string();
+
+            // Чтение бд
+            json results_data = results_db.read();
+            json tests_data = tests_db.read();
+
+            if (!tests_data["data"].contains(test_id)){
+                return crow::response(404, "Тест с таким ID не найден");
+            }
+            if (!results_data.contains(test_id)){
+                return crow::response(404, "Результаты теста с таким ID не найдены!");
+            }
+
+            // Получение результатов теста
+            json results = results_data[test_id];
+
+            // Создание ответа
+            crow::response res(200, results.dump());
+            res.add_header("Content-Type", "application/json");
+            return res;
+
+            // Создание ответа
+            return crow::response(200, "Результат успешно сохранён");
         }
         catch (const json::exception& e) {
             return crow::response(400, "Неверный формат запроса JSON");
