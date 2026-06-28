@@ -54,6 +54,7 @@ crow::response get_user_profile_info(const crow::request& req, JSONDatabase& use
         {"role", user_data["role"]},
         {"firstname", user_data["firstname"]},
         {"lastname", user_data["lastname"]},
+        {"group", user_data["group"]},
         {"available_tests", user_data["available_tests"]},
         {"created_tests", user_data["created_tests"]}
     };
@@ -74,6 +75,7 @@ void setup_users_routes(crow::SimpleApp& app, JSONDatabase& users_db, JSONDataba
             std::string role = body.at("role");
             std::string firstname = body.at("firstname");
             std::string lastname = body.at("lastname");
+            std::string group;
 
             // Проверка необходимых полей
             if (username.empty() || password.empty()) {
@@ -83,7 +85,17 @@ void setup_users_routes(crow::SimpleApp& app, JSONDatabase& users_db, JSONDataba
                 return crow::response(400, "Имя и фамилия не могут быть пустыми");
             }
             if (role != "teacher" && role != "student") {
-                return crow::response(400, "Недопустимая роль. Разрешено только 'teacher' или 'student'");
+                return crow::response(400, "Недопустимая роль. Разрешено только \"teacher\" или \"student\"");
+            }
+
+            if (role == "teacher") {
+                group = "";
+            }
+            else if (!body.contains("group")){
+                return crow::response(400, "Ошибка: отсутствует поле group в запросе");
+            }
+            else {
+                group = body.at("group");
             }
 
             // Новая запись в бд
@@ -108,6 +120,7 @@ void setup_users_routes(crow::SimpleApp& app, JSONDatabase& users_db, JSONDataba
                     {"role", role},
                     {"firstname", firstname},
                     {"lastname", lastname},
+                    {"group", group},
                     {"available_tests", json::array()},
                     {"created_tests", json::array()}
                 };
@@ -230,6 +243,7 @@ void setup_users_routes(crow::SimpleApp& app, JSONDatabase& users_db, JSONDataba
         }
     });
 
+    // Получение списка пользователей по роли
     CROW_ROUTE(app, "/api/users/list/<string>").methods(crow::HTTPMethod::Post)([&](const crow::request& req, std::string target_role) {
         try {
             // Попытка чтения токена из тела
@@ -265,6 +279,69 @@ void setup_users_routes(crow::SimpleApp& app, JSONDatabase& users_db, JSONDataba
             for (auto& item : users_data.items()) {
                 json user_data = item.value();
                 if (user_data["role"] != target_role) continue;
+                std::string user_id = item.key();
+
+                json profile_info = {
+                    {"id", user_id},
+                    {"user", user_data["username"]},
+                    {"firstname", user_data["firstname"]},
+                    {"lastname", user_data["lastname"]}
+                };
+
+                users_profile_info["data"].push_back(profile_info);
+            }
+            
+            // Создание ответа
+            crow::response res(200, users_profile_info.dump());
+            res.add_header("Content-Type", "application/json");
+            return res;
+        } 
+        catch (const json::exception& e) {
+            std::cout << e.what() << std::endl;
+            return crow::response(400, "Неверный формат запроса JSON");
+        }
+        catch (const std::exception& e) {
+            return crow::response(500, std::string("Внутренняя ошибка сервера: ") + e.what());
+        }
+    });
+
+    // Получение списка студентов по группе
+    CROW_ROUTE(app, "/api/users/list/student/<string>").methods(crow::HTTPMethod::Post)([&](const crow::request& req, std::string target_group) {
+        try {
+            // Попытка чтения токена из тела
+            auto body = json::parse(req.body);
+            if (!body.contains("token")) {
+                return crow::response(400, "Ошибка: отсутствует поле token в запросе");
+            }
+            
+            std::string token = body.at("token");
+            if (token.empty()) {
+                return crow::response(401, "Ошибка: требуется авторизация");
+            }
+            
+            // Расшифровка токена
+            auto decoded = jwt::decode(token);
+            auto verifier = jwt::verify()
+                .allow_algorithm(jwt::algorithm::hs256{JWT_SECRET})
+                .with_issuer(ISSUER);
+            try {
+                verifier.verify(decoded);
+            }
+            catch (const std::exception& e) {
+                return crow::response(401, "Сессия устарела или токен поврежден. Войдите заново.");
+            }
+            
+            // Чтение бд
+            json users_data = users_db.read()["data"];
+
+            // Получение массива информации о пользователях
+            json users_profile_info = json::object();
+            users_profile_info["data"] = json::array();
+            
+            for (auto& item : users_data.items()) {
+                json user_data = item.value();
+                if (user_data["role"] != "student") continue;
+                if (user_data["group"] != target_group) continue;
                 std::string user_id = item.key();
 
                 json profile_info = {

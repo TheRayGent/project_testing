@@ -11,7 +11,7 @@ JSONConfig load_config()
     std::ifstream file("config.json");
     json data;
     if (!file.is_open()){
-        std::cout << "[WARNING] Не удалось открыть файл конфигурации, используются значения по умолчанию.\n";
+        std::cout << "[WARNING] Не удалось открыть файл config.json, используются значения по умолчанию.\n";
     }
     else {
         file >> data;
