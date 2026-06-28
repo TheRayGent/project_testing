@@ -343,9 +343,6 @@ void setup_tests_routes(crow::SimpleApp& app, JSONDatabase& users_db, JSONDataba
                 return crow::response(401, "Сессия устарела или токен поврежден. Войдите заново.");
             }
 
-            // Получение user_id из токена
-            std::string user_id = decoded.get_payload_claim("user_id").as_string();
-
             // Чтение бд
             json results_data = results_db.read();
             json tests_data = tests_db.read();
@@ -362,6 +359,70 @@ void setup_tests_routes(crow::SimpleApp& app, JSONDatabase& users_db, JSONDataba
 
             // Создание ответа
             crow::response res(200, results.dump());
+            res.add_header("Content-Type", "application/json");
+            return res;
+
+            // Создание ответа
+            return crow::response(200, "Результат успешно сохранён");
+        }
+        catch (const json::exception& e) {
+            return crow::response(400, "Неверный формат запроса JSON");
+        }
+        catch (const std::exception& e) {
+            return crow::response(500, std::string("Внутренняя ошибка сервера: ") + e.what());
+        }
+    });
+
+    // Получение результатов теста у пользователя
+    CROW_ROUTE(app, "/api/tests/<string>/get_result").methods(crow::HTTPMethod::Post)([&](const crow::request& req, std::string test_id) {
+        try {
+            // Попытка чтения токена из тела
+            auto body = json::parse(req.body);
+
+            if (!body.contains("token")) {
+                return crow::response(400, "Ошибка: отсутствует поле token в запросе");
+            }
+            std::string token = body.at("token");
+            if (token.empty()) {
+                return crow::response(401, "Ошибка: требуется авторизация");
+            }
+
+            // Расшифровка токена
+            auto decoded = jwt::decode(token);
+            auto verifier = jwt::verify()
+                .allow_algorithm(jwt::algorithm::hs256{JWT_SECRET})
+                .with_issuer(ISSUER);
+            try {
+                verifier.verify(decoded);
+            }
+            catch (const std::exception& e) {
+                return crow::response(401, "Сессия устарела или токен поврежден. Войдите заново.");
+            }
+
+            // Получение user_id из токена
+            std::string user_id = decoded.get_payload_claim("user_id").as_string();
+
+            // Чтение бд
+            json results_data = results_db.read();
+            json tests_data = tests_db.read();
+
+            if (!tests_data["data"].contains(test_id)){
+                return crow::response(404, "Тест с таким ID не найден!");
+            }
+            if (!results_data.contains(test_id)){
+                return crow::response(404, "Результаты теста с таким ID не найдены!");
+            }
+            if (!results_data[test_id].contains(user_id)){
+                return crow::response(404, "Ваши результаты не найдены!");
+            }
+
+            // Получение результатов теста
+            json result = {
+                {"result", results_data[test_id][user_id]}
+            };
+
+            // Создание ответа
+            crow::response res(200, result.dump());
             res.add_header("Content-Type", "application/json");
             return res;
 
