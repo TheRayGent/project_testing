@@ -6,7 +6,7 @@ namespace Client
 {
     public partial class MainWindow : Window
     {
-        private bool isDarkTheme = false;
+       
 
         public MainWindow()
         {
@@ -14,18 +14,7 @@ namespace Client
             this.Loaded += MainWindow_Loaded;
         }
 
-        // Логика смены темы
-        private void ToggleTheme_Click(object sender, RoutedEventArgs e)
-        {
-            isDarkTheme = !isDarkTheme;
-            ThemeToggleBtn.Content = isDarkTheme ? "☀️ Светлая" : "🌙 Темная";
-
-            string themeFile = isDarkTheme ? "DarkTheme.xaml" : "LightTheme.xaml";
-            var uri = new Uri($"Themes/{themeFile}", UriKind.Relative);
-
-            Application.Current.Resources.MergedDictionaries.Clear();
-            Application.Current.Resources.MergedDictionaries.Add(new ResourceDictionary() { Source = uri });
-        }
+       
 
         private async void MainWindow_Loaded(object sender, RoutedEventArgs e)
         {

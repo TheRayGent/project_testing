@@ -1,6 +1,8 @@
 ﻿using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using Client.Services;
@@ -10,135 +12,166 @@ namespace Client.Views
 {
     public partial class TeacherPage : Page
     {
-        // Динамический список вопросов, к которому привязан интерфейс
-        public ObservableCollection<EditableQuestion> TestQuestions { get; set; }
+        public ObservableCollection<EditableQuestion> TestQuestions { get; set; } = new();
+        public ObservableCollection<TestItemDto> DisplayedTests { get; set; } = new();
+
+        private string _selectedTestIdForAccess = string.Empty;
+        private List<StudentUserDto> _currentStudentsList = new();
+        private static bool _isDarkTheme = false;
 
         public TeacherPage()
         {
             InitializeComponent();
-            TeacherNameTxt.Text = $"Преподаватель:\n{Session.FullName}";
+            TeacherNameTxt.Text = $"Преподаватель: {Session.FullName}";
+            ThemeToggleBtn.Content = _isDarkTheme ? "☀️ Светлая" : "🌙 Темная";
 
-            // Инициализируем список и привязываем его к интерфейсу
-            TestQuestions = new ObservableCollection<EditableQuestion>();
             QuestionsList.ItemsSource = TestQuestions;
+            CreatedTestsList.ItemsSource = DisplayedTests;
 
-            // При открытии сразу добавляем один пустой вопрос для удобства
-            AddNewQuestion();
+            // === ИСПРАВЛЕНИЕ: МГНОВЕННАЯ ЗАГРУЗКА ===
+            // Вызываем загрузку прямо в конструкторе (в фоне)
+            _ = LoadCreatedTestsAsync();
         }
 
-        private void AddNewQuestion()
+        private async Task LoadCreatedTestsAsync()
         {
-            var newQuestion = new EditableQuestion();
-            // По умолчанию даем 2 пустых варианта ответа
-            newQuestion.Options.Add(new EditableOption());
-            newQuestion.Options.Add(new EditableOption());
-            TestQuestions.Add(newQuestion);
+            DisplayedTests.Clear();
+            NoTestsTxt.Visibility = Visibility.Collapsed;
+
+            await ApiService.FetchProfileAsync();
+
+            if (Session.CreatedTests == null || Session.CreatedTests.Count == 0)
+            {
+                NoTestsTxt.Visibility = Visibility.Visible;
+                return;
+            }
+
+            foreach (var id in Session.CreatedTests)
+            {
+                var test = await ApiService.GetTestByIdAsync(id);
+                if (test != null) DisplayedTests.Add(test);
+            }
+
+            if (DisplayedTests.Count == 0) NoTestsTxt.Visibility = Visibility.Visible;
         }
 
-        // --- ОБРАБОТЧИКИ КНОПОК ИНТЕРФЕЙСА ---
+        // --- ЛОГИКА СТАТИСТИКИ (НОВОЕ) ---
+        private async void ShowStatistics_Click(object sender, RoutedEventArgs e)
+        {
+            string testId = ((Button)sender).Tag.ToString()!;
+            
+            // Получаем результаты от C++
+            var results = await ApiService.GetTestResultsAsync(testId);
+            if (results.Count == 0)
+            {
+                MessageBox.Show("Этот тест еще никто не прошел.", "Статистика", MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
 
+            // Получаем список всех студентов, чтобы сопоставить ID с Именем
+            var allStudents = await ApiService.GetStudentsListAsync();
+            var statsBuilder = new StringBuilder("Результаты прохождения:\n\n");
+
+            foreach (var kvp in results)
+            {
+                string studentId = kvp.Key;
+                string score = kvp.Value;
+                
+                // Ищем имя студента
+                var student = allStudents.FirstOrDefault(s => s.Id == studentId);
+                string studentName = student != null ? student.FullName : $"Студент (ID {studentId})";
+
+                statsBuilder.AppendLine($"👤 {studentName} -> {score}");
+            }
+
+            MessageBox.Show(statsBuilder.ToString(), "Статистика теста", MessageBoxButton.OK, MessageBoxImage.Information);
+        }
+
+        // Остальные методы без изменений
+        private void ToggleTheme_Click(object sender, RoutedEventArgs e)
+        {
+            _isDarkTheme = !_isDarkTheme;
+            ThemeToggleBtn.Content = _isDarkTheme ? "☀️ Светлая" : "🌙 Темная";
+            string themeFile = _isDarkTheme ? "DarkTheme.xaml" : "LightTheme.xaml";
+            Application.Current.Resources.MergedDictionaries.Clear();
+            Application.Current.Resources.MergedDictionaries.Add(new ResourceDictionary() { Source = new System.Uri($"Themes/{themeFile}", System.UriKind.Relative) });
+        }
+
+        private void ShowCreateTest_Click(object sender, RoutedEventArgs e)
+        {
+            MainPanelGrid.Visibility = Visibility.Collapsed;
+            GiveAccessGrid.Visibility = Visibility.Collapsed;
+            CreateTestGrid.Visibility = Visibility.Visible;
+            if (TestQuestions.Count == 0) AddNewQuestion();
+        }
+
+        private async void ShowGiveAccess_Click(object sender, RoutedEventArgs e)
+        {
+            _selectedTestIdForAccess = ((Button)sender).Tag.ToString()!;
+            _currentStudentsList = await ApiService.GetStudentsListAsync();
+            StudentsList.ItemsSource = _currentStudentsList;
+
+            if (_currentStudentsList.Count == 0) MessageBox.Show("Нет студентов!");
+
+            MainPanelGrid.Visibility = Visibility.Collapsed;
+            CreateTestGrid.Visibility = Visibility.Collapsed;
+            GiveAccessGrid.Visibility = Visibility.Visible;
+        }
+
+        private void BackToMain_Click(object sender, RoutedEventArgs e)
+        {
+            CreateTestGrid.Visibility = Visibility.Collapsed; GiveAccessGrid.Visibility = Visibility.Collapsed; MainPanelGrid.Visibility = Visibility.Visible;
+        }
+
+        private async void SaveAccess_Click(object sender, RoutedEventArgs e)
+        {
+            var selectedStudentIds = _currentStudentsList.Where(s => s.IsChecked).Select(s => s.Id).ToList();
+            if (selectedStudentIds.Count == 0) { MessageBox.Show("Выберите студента!"); return; }
+
+            if (await ApiService.GiveAccessAsync(_selectedTestIdForAccess, selectedStudentIds))
+            {
+                MessageBox.Show("Доступ выдан!"); BackToMain_Click(null!, null!);
+            }
+        }
+
+        private void AddNewQuestion() { var q = new EditableQuestion(); q.Options.Add(new EditableOption()); q.Options.Add(new EditableOption()); TestQuestions.Add(q); }
         private void AddQuestion_Click(object sender, RoutedEventArgs e) => AddNewQuestion();
-
-        private void RemoveQuestion_Click(object sender, RoutedEventArgs e)
-        {
-            var btn = (Button)sender;
-            var question = (EditableQuestion)btn.Tag;
-            TestQuestions.Remove(question);
-        }
-
-        private void AddOption_Click(object sender, RoutedEventArgs e)
-        {
-            var btn = (Button)sender;
-            var question = (EditableQuestion)btn.Tag;
-            question.Options.Add(new EditableOption());
-        }
-
+        private void RemoveQuestion_Click(object sender, RoutedEventArgs e) => TestQuestions.Remove((EditableQuestion)((Button)sender).Tag);
+        private void AddOption_Click(object sender, RoutedEventArgs e) => ((EditableQuestion)((Button)sender).Tag).Options.Add(new EditableOption());
         private void RemoveOption_Click(object sender, RoutedEventArgs e)
         {
-            var btn = (Button)sender;
-            var option = (EditableOption)btn.Tag;
-            // Ищем, какому вопросу принадлежит этот вариант ответа
+            var option = (EditableOption)((Button)sender).Tag;
             var question = TestQuestions.FirstOrDefault(q => q.Options.Contains(option));
-            if (question != null && question.Options.Count > 2)
-            {
-                question.Options.Remove(option);
-            }
-            else
-            {
-                MessageBox.Show("В вопросе должно быть минимум 2 варианта ответа!", "Внимание", MessageBoxButton.OK, MessageBoxImage.Warning);
-            }
+            if (question != null && question.Options.Count > 2) question.Options.Remove(option);
         }
-
-        // --- ОТПРАВКА НА СЕРВЕР C++ ---
 
         private async void SaveTest_Click(object sender, RoutedEventArgs e)
         {
-            // 1. ВАЛИДАЦИЯ ПЕРЕД ОТПРАВКОЙ (чтобы C++ не выдал ошибку 400)
-            if (string.IsNullOrWhiteSpace(TestTitle.Text))
-            {
-                MessageBox.Show("Введите название теста!", "Ошибка", MessageBoxButton.OK, MessageBoxImage.Error);
-                return;
-            }
-
-            if (TestQuestions.Count == 0)
-            {
-                MessageBox.Show("Добавьте хотя бы один вопрос!", "Ошибка", MessageBoxButton.OK, MessageBoxImage.Error);
-                return;
-            }
-
+            if (string.IsNullOrWhiteSpace(TestTitle.Text)) return;
             var apiQuestionsList = new List<object>();
 
             foreach (var q in TestQuestions)
             {
-                if (string.IsNullOrWhiteSpace(q.Text))
-                {
-                    MessageBox.Show("Один из вопросов не содержит текста!", "Ошибка", MessageBoxButton.OK, MessageBoxImage.Error);
-                    return;
-                }
-
-                // Ищем индекс правильного ответа (где IsCorrect == true)
                 int correctIndex = q.Options.ToList().FindIndex(opt => opt.IsCorrect);
-                
-                if (correctIndex == -1)
-                {
-                    MessageBox.Show($"В вопросе '{q.Text}' не выбран правильный ответ!", "Ошибка", MessageBoxButton.OK, MessageBoxImage.Error);
-                    return;
-                }
-
-                // Формируем структуру ровно так, как ждет твой C++ код
-                apiQuestionsList.Add(new
-                {
-                    text = q.Text,
-                    options = q.Options.Select(opt => string.IsNullOrWhiteSpace(opt.Text) ? "Пустой вариант" : opt.Text).ToArray(),
-                    correct_option = correctIndex
-                });
+                if (correctIndex == -1) return;
+                apiQuestionsList.Add(new { text = q.Text, options = q.Options.Select(opt => string.IsNullOrWhiteSpace(opt.Text) ? "Пусто" : opt.Text).ToArray(), correct_option = correctIndex });
             }
 
-            // 2. ОТПРАВКА
-            bool isSuccess = await ApiService.CreateTestAsync(TestTitle.Text, TestDesc.Text, apiQuestionsList.ToArray());
-
-            if (isSuccess)
+            if (await ApiService.CreateTestAsync(TestTitle.Text, TestDesc.Text, apiQuestionsList.ToArray()))
             {
-                MessageBox.Show("Тест успешно сохранен на сервере!", "Успех", MessageBoxButton.OK, MessageBoxImage.Information);
-                // Очищаем форму после успешного создания
-                TestTitle.Text = "";
-                TestDesc.Text = "";
-                TestQuestions.Clear();
-                AddNewQuestion();
-            }
-            else
-            {
-                MessageBox.Show("Ошибка сохранения. Проверьте подключение к серверу.", "Ошибка", MessageBoxButton.OK, MessageBoxImage.Error);
+                MessageBox.Show("Тест сохранен!");
+                TestTitle.Text = ""; TestDesc.Text = ""; TestQuestions.Clear();
+                await LoadCreatedTestsAsync();
+                BackToMain_Click(null!, null!);
             }
         }
 
-        // Выход из аккаунта
         private void Logout_Click(object sender, RoutedEventArgs e)
         {
-            TokenStorage.Clear();
-            Session.Token = string.Empty;
+            TokenStorage.Clear(); 
+            Session.Token = string.Empty; 
             Session.Role = string.Empty;
-            Session.FullName = string.Empty;
+            if (Session.CreatedTests != null) Session.CreatedTests.Clear();
             NavigationService.Navigate(new LoginPage());
         }
     }

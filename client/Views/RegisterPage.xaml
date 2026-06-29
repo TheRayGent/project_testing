@@ -11,6 +11,10 @@
             <TextBlock Text="Фамилия" Foreground="{DynamicResource HintTextBrush}"/>
             <TextBox x:Name="LNameBox" Margin="0,0,0,10" Padding="8"/>
 
+            <!-- НОВОЕ: Поле Группа -->
+            <TextBlock Text="Группа (Для студентов)" Foreground="{DynamicResource HintTextBrush}"/>
+            <TextBox x:Name="GroupBox" Margin="0,0,0,10" Padding="8" Text="БФУ-1"/>
+
             <TextBlock Text="Логин" Foreground="{DynamicResource HintTextBrush}"/>
             <TextBox x:Name="LoginBox" Margin="0,0,0,10" Padding="8"/>
 

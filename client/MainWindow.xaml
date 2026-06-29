@@ -2,14 +2,8 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="Система Тестирования" Height="600" Width="900" WindowStartupLocation="CenterScreen"
-        Background="{DynamicResource BgBrush}"> <!-- Фон окна теперь динамический! -->
+        Background="{DynamicResource BgBrush}">
     <Grid>
-        <!-- Фрейм с экранами -->
         <Frame x:Name="MainFrame" NavigationUIVisibility="Hidden"/>
-        
-        <!-- Кнопка смены темы поверх всех экранов -->
-        <Button x:Name="ThemeToggleBtn" Content="🌙 Темная" HorizontalAlignment="Right" VerticalAlignment="Top" 
-                Margin="10" Padding="10,5" Background="{DynamicResource PanelBrush}" 
-                Foreground="{DynamicResource TextBrush}" BorderBrush="{DynamicResource BorderBrush}" Click="ToggleTheme_Click"/>
     </Grid>
 </Window>

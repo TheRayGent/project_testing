@@ -6,10 +6,10 @@
             <TextBlock Text="Вход в систему" FontSize="26" FontWeight="Bold" Foreground="{DynamicResource TextBrush}" TextAlignment="Center" Margin="0,0,0,20"/>
             
             <TextBlock Text="Логин" Foreground="{DynamicResource HintTextBrush}"/>
-            <TextBox x:Name="LoginBox" Text="admin" Margin="0,0,0,15" Padding="8"/>
+            <TextBox x:Name="LoginBox" Text="" Margin="0,0,0,15" Padding="8"/>
             
             <TextBlock Text="Пароль" Foreground="{DynamicResource HintTextBrush}"/>
-            <PasswordBox x:Name="PassBox" Password="123" Margin="0,0,0,25" Padding="8"/>
+            <PasswordBox x:Name="PassBox" Password="" Margin="0,0,0,25" Padding="8"/>
             
             <Button Content="ВОЙТИ" Background="#0078D7" Foreground="White" Padding="10" FontSize="16" Click="LoginBtn_Click"/>
             

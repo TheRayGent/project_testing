@@ -28,6 +28,12 @@ namespace Client.Models
         public bool IsSelected { get; set; } = false;
     }
 
+    public class StudentUserDto
+    {
+        public string Id { get; set; } = string.Empty;
+        public string FullName { get; set; } = string.Empty;
+        public bool IsChecked { get; set; } = false; // Для галочки в интерфейсе
+    }
 
     public class EditableOption { public string Text { get; set; } = string.Empty; public bool IsCorrect { get; set; } = false; }
     public class EditableQuestion { public string GroupId { get; } = Guid.NewGuid().ToString(); public string Text { get; set; } = string.Empty; public ObservableCollection<EditableOption> Options { get; set; } = new(); }

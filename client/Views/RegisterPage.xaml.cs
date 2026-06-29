@@ -12,15 +12,13 @@ namespace Client.Views
         private async void RegisterBtn_Click(object sender, RoutedEventArgs e)
         {
             ErrorText.Text = "Отправка...";
-            
-            // Достаем тег роли из ComboBox ("teacher" или "student")
             var selectedRole = (ComboBoxItem)RoleBox.SelectedItem;
             string roleTag = selectedRole.Tag.ToString()!;
 
-            if (await ApiService.RegisterAsync(LoginBox.Text, PassBox.Password, FNameBox.Text, LNameBox.Text, roleTag))
+            // Отправляем данные вместе с группой
+            if (await ApiService.RegisterAsync(LoginBox.Text, PassBox.Password, FNameBox.Text, LNameBox.Text, roleTag, GroupBox.Text))
             {
                 TokenStorage.SaveToken(Session.Token); 
-                
                 if (await ApiService.FetchProfileAsync())
                 {
                     if (Session.Role == "teacher") NavigationService.Navigate(new TeacherPage());
@@ -31,9 +29,6 @@ namespace Client.Views
             ErrorText.Text = "Ошибка! Логин занят или данные неверны.";
         }
 
-        private void BackToLogin_Click(object sender, RoutedEventArgs e)
-        {
-            NavigationService.Navigate(new LoginPage());
-        }
+        private void BackToLogin_Click(object sender, RoutedEventArgs e) => NavigationService.Navigate(new LoginPage());
     }
 }

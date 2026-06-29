@@ -1,15 +1,40 @@
 ﻿<Page x:Class="Client.Views.StudentPage"
       xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+      Background="{DynamicResource BgBrush}">
+    
     <Grid Margin="30">
-        <Button Content="Выйти" Background="#DC3545" Foreground="White" Padding="10,5" HorizontalAlignment="Right" VerticalAlignment="Top" Click="Logout_Click"/>
-        <TextBlock x:Name="StudentNameTxt" FontSize="18" Foreground="{DynamicResource HintTextBrush}" Margin="0,0,0,20" VerticalAlignment="Top"/>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/> 
+            <RowDefinition Height="*"/>    
+        </Grid.RowDefinitions>
+
+        <!-- Верхняя шапка (с кнопкой темы) -->
+        <Border Grid.Row="0" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,0,0,2" Padding="0,0,0,10" Margin="0,0,0,20">
+            <Grid>
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                    <TextBlock x:Name="StudentNameTxt" FontSize="20" FontWeight="Bold" Foreground="{DynamicResource TextBrush}"/>
+                    <Button x:Name="ThemeToggleBtn" Content="🌙 Темная" Margin="20,0,0,0" Padding="10,5" Background="{DynamicResource PanelBrush}" Foreground="{DynamicResource TextBrush}" BorderBrush="{DynamicResource BorderBrush}" Click="ToggleTheme_Click"/>
+                </StackPanel>
+                
+                <Button Content="Выйти" Background="#DC3545" Foreground="White" Padding="15,5" HorizontalAlignment="Right" VerticalAlignment="Center" Click="Logout_Click" BorderThickness="0"/>
+            </Grid>
+        </Border>
 
         <!-- ЭКРАН 1: СПИСОК ТЕСТОВ -->
-        <Grid x:Name="TestSelectionGrid" Margin="0,40,0,0">
-            <TextBlock Text="Доступные тесты" FontSize="26" FontWeight="Bold" Foreground="{DynamicResource TextBrush}" Margin="0,0,0,15"/>
+        <Grid x:Name="TestSelectionGrid" Grid.Row="1">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+            </Grid.RowDefinitions>
+
+            <TextBlock Grid.Row="0" Text="Доступные тесты" FontSize="26" FontWeight="Bold" Foreground="{DynamicResource TextBrush}" Margin="0,0,0,15"/>
             
-            <ListBox x:Name="TestsListBox" Margin="0,40,0,0" Background="Transparent" BorderThickness="0" HorizontalContentAlignment="Stretch">
+            <!-- Текст, если тестов нет -->
+            <TextBlock Grid.Row="1" x:Name="NoTestsTxt" Text="У вас пока нет доступных тестов. Ожидайте, пока преподаватель выдаст вам доступ." FontSize="16" Foreground="{DynamicResource HintTextBrush}" Margin="0,30,0,0" Visibility="Collapsed"/>
+            
+            <ListBox Grid.Row="2" x:Name="TestsListBox" Margin="0,20,0,0" Background="Transparent" BorderThickness="0" HorizontalContentAlignment="Stretch">
                 <ListBox.ItemTemplate>
                     <DataTemplate>
                         <Border Background="{DynamicResource PanelBrush}" CornerRadius="8" Padding="15" Margin="0,0,0,10" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1">
@@ -18,11 +43,11 @@
                                     <ColumnDefinition Width="*"/>
                                     <ColumnDefinition Width="Auto"/>
                                 </Grid.ColumnDefinitions>
-                                <StackPanel>
+                                <StackPanel VerticalAlignment="Center">
                                     <TextBlock Text="{Binding Title}" FontSize="18" FontWeight="Bold" Foreground="{DynamicResource TextBrush}"/>
                                     <TextBlock Text="{Binding Description}" FontSize="14" Foreground="{DynamicResource HintTextBrush}" TextWrapping="Wrap" Margin="0,5,0,0"/>
                                 </StackPanel>
-                                <Button Grid.Column="1" Content="Начать тест" Background="#007ACC" Foreground="White" Padding="15,10" Tag="{Binding Id}" Click="StartTest_Click"/>
+                                <Button Grid.Column="1" Content="Начать тест" Background="#007ACC" Foreground="White" Padding="15,10" BorderThickness="0" Tag="{Binding Id}" Click="StartTest_Click"/>
                             </Grid>
                         </Border>
                     </DataTemplate>
@@ -31,10 +56,16 @@
         </Grid>
 
         <!-- ЭКРАН 2: ПРОХОЖДЕНИЕ ТЕСТА -->
-        <Grid x:Name="TestPassingGrid" Visibility="Collapsed" Margin="0,40,0,0">
-            <TextBlock x:Name="ProgressTxt" FontSize="16" Foreground="{DynamicResource HintTextBrush}" Margin="0,0,0,10"/>
+        <Grid x:Name="TestPassingGrid" Grid.Row="1" Visibility="Collapsed">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+
+            <TextBlock Grid.Row="0" x:Name="ProgressTxt" FontSize="18" FontWeight="Bold" Foreground="{DynamicResource HintTextBrush}" Margin="0,0,0,10"/>
             
-            <Border Background="{DynamicResource PanelBrush}" Padding="20" CornerRadius="10" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" Margin="0,30,0,0" VerticalAlignment="Top">
+            <Border Grid.Row="1" Background="{DynamicResource PanelBrush}" Padding="20" CornerRadius="10" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" Margin="0,10,0,20" VerticalAlignment="Top">
                 <StackPanel>
                     <TextBlock x:Name="QuestionTxt" FontSize="22" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" TextWrapping="Wrap" Margin="0,0,0,20"/>
                     
@@ -48,7 +79,7 @@
                 </StackPanel>
             </Border>
 
-            <Button x:Name="NextQuestionBtn" Content="Следующий вопрос" Width="200" HorizontalAlignment="Right" VerticalAlignment="Bottom" Background="#28A745" Foreground="White" Padding="12" Click="NextQuestion_Click"/>
+            <Button Grid.Row="2" x:Name="NextQuestionBtn" Content="Следующий вопрос" Width="200" HorizontalAlignment="Right" Background="#28A745" Foreground="White" Padding="12" BorderThickness="0" Click="NextQuestion_Click"/>
         </Grid>
     </Grid>
 </Page>
