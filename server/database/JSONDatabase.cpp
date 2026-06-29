@@ -1,14 +1,18 @@
 #include "JSONDatabase.hpp"
+#include <iostream>
 
 JSONDatabase::JSONDatabase(std::string file_path) : db_file(std::move(file_path)) {}
 
 // Инициализация бд
 void JSONDatabase::init(){
-    load_from_disk();
+    if (load_from_disk()){
+        std::cout << "[WARNING] Не удалось открыть файл " << db_file << ", файл будет пересоздан по шаблону при следующей записи.\n";
+    }
 }
 
 // Загрузка бд из файла в опреативную память
-void JSONDatabase::load_from_disk() {
+bool JSONDatabase::load_from_disk() {
+    bool recreated = false;
     std::ifstream file(db_file);
     if (file.is_open() && file.peek() != std::ifstream::traits_type::eof()) {
         try {
@@ -16,15 +20,16 @@ void JSONDatabase::load_from_disk() {
 
             if (!cache_data.contains("data")) cache_data["data"] = json::object();
             if (!cache_data.contains("next_id")) cache_data["next_id"] = 1;
-
-            return;
         }
         catch (const json::parse_error&) {
             cache_data = {{"next_id", 1}, {"data", json::object()}};
+            recreated = true;
         }
     } else {
         cache_data = {{"next_id", 1}, {"data", json::object()}};
+        recreated = true;
     }
+    return recreated;
 }
 
 // Запись бд в файл
@@ -50,18 +55,20 @@ void JSONDatabase::update(std::function<void(json&)> transform_func) {
 UnindexedJSONDatabase::UnindexedJSONDatabase(std::string file_path) : JSONDatabase(std::move(file_path)) {}
 
 // Загрузка бд, только без переменной next_id
-void UnindexedJSONDatabase::load_from_disk() {
+bool UnindexedJSONDatabase::load_from_disk() {
+    bool recreated = false;
     std::ifstream file(db_file);
     if (file.is_open() && file.peek() != std::ifstream::traits_type::eof()) {
         try {
             file >> cache_data;
-
-            return;
         }
         catch (const json::parse_error&) {
             cache_data = json::object();
+            recreated = true;
         }
     } else {
         cache_data = json::object();
+        recreated = true;
     }
+    return recreated;
 }

@@ -103,6 +103,7 @@ target_link_libraries(project_testing PRIVATE
 
 if(MSVC)
     target_compile_options(config PRIVATE /source-charset:.65001)
+    target_compile_options(database PRIVATE /source-charset:.65001)
     target_include_directories(project_testing PRIVATE "C:/Program Files/OpenSSL-Win64/include")
     target_link_directories(project_testing PRIVATE "C:/Program Files/OpenSSL-Win64/lib/VC/x64/MT")
     target_link_libraries(project_testing PRIVATE libssl_static libcrypto_static user32 advapi32 crypt32)
