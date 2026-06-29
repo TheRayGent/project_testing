@@ -6,7 +6,17 @@ JSONDatabase::JSONDatabase(std::string file_path) : db_file(std::move(file_path)
 // Инициализация бд
 void JSONDatabase::init(){
     if (load_from_disk()){
-        std::cout << "[WARNING] Не удалось открыть файл " << db_file << ", файл будет пересоздан по шаблону при следующей записи.\n";
+        std::cout << "[WARNING] Не удалось открыть файл " << db_file << ", файл будет пересоздан по шаблону.\n";
+        if (db_file == "groups_db.json"){
+            update([&](json& data) {
+                data["groups"] = json::array();
+                auto& groups = data["groups"];
+                groups.push_back("A");
+                groups.push_back("B");
+                groups.push_back("C");
+                groups.push_back("Z");
+            });
+        }
     }
 }
 

@@ -66,7 +66,7 @@ crow::response get_user_profile_info(const crow::request& req, JSONDatabase& use
     return res;
 }
 
-void setup_users_routes(crow::SimpleApp& app, JSONDatabase& users_db, JSONDatabase& tests_db){
+void setup_users_routes(crow::SimpleApp& app, JSONDatabase& users_db, JSONDatabase& groups_db){
     // Создание аккаунта
     CROW_ROUTE(app, "/api/users/register").methods(crow::HTTPMethod::Post)([&](const crow::request& req) {
         try {
@@ -353,6 +353,39 @@ void setup_users_routes(crow::SimpleApp& app, JSONDatabase& users_db, JSONDataba
         } 
         catch (const json::exception& e) {
             std::cout << e.what() << std::endl;
+            return crow::response(400, "Неверный формат запроса JSON");
+        }
+        catch (const std::exception& e) {
+            return crow::response(500, std::string("Внутренняя ошибка сервера: ") + e.what());
+        }
+    });
+
+    CROW_ROUTE(app, "/api/groups").methods(crow::HTTPMethod::Post)([&](const crow::request& req) {
+        try {
+            // Попытка чтения токена из тела
+            auto body = json::parse(req.body);
+            if (!body.contains("token")) {
+                return crow::response(400, "Ошибка: отсутствует поле token в запросе");
+            }
+            
+            std::string token = body.at("token");
+            if (token.empty()) {
+                return crow::response(401, "Ошибка: требуется авторизация");
+            }
+            
+            // Расшифровка токена
+            auto decoded = jwt::decode(token);
+            auto verifier = jwt::verify()
+                .allow_algorithm(jwt::algorithm::hs256{JWT_SECRET})
+                .with_issuer(ISSUER);
+
+            auto groups = groups_db.read()["groups"];
+
+            crow::response res(200, groups.dump());
+            res.add_header("Content-Type", "application/json");
+            return res;
+        } 
+        catch (const json::exception& e) {
             return crow::response(400, "Неверный формат запроса JSON");
         }
         catch (const std::exception& e) {
