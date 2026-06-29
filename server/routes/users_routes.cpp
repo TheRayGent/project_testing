@@ -22,12 +22,14 @@ crow::response get_user_profile_info(const crow::request& req, JSONDatabase& use
     auto verifier = jwt::verify()
         .allow_algorithm(jwt::algorithm::hs256{JWT_SECRET})
         .with_issuer(ISSUER);
-    try {
-        verifier.verify(decoded);
+    if (target_user_id == ""){
+        try {
+            verifier.verify(decoded);
+        }
+        catch (const std::exception& e) {
+            return crow::response(401, "Сессия устарела или токен поврежден. Войдите заново.");
+        }
     }
-    catch (const std::exception& e) {
-        return crow::response(401, "Сессия устарела или токен поврежден. Войдите заново.");
-    }     
     
     // Получение user_id
     std::string user_id;
@@ -262,12 +264,6 @@ void setup_users_routes(crow::SimpleApp& app, JSONDatabase& users_db, JSONDataba
             auto verifier = jwt::verify()
                 .allow_algorithm(jwt::algorithm::hs256{JWT_SECRET})
                 .with_issuer(ISSUER);
-            try {
-                verifier.verify(decoded);
-            }
-            catch (const std::exception& e) {
-                return crow::response(401, "Сессия устарела или токен поврежден. Войдите заново.");
-            }
             
             // Чтение бд
             json users_data = users_db.read()["data"];
@@ -285,7 +281,8 @@ void setup_users_routes(crow::SimpleApp& app, JSONDatabase& users_db, JSONDataba
                     {"id", user_id},
                     {"user", user_data["username"]},
                     {"firstname", user_data["firstname"]},
-                    {"lastname", user_data["lastname"]}
+                    {"lastname", user_data["lastname"]},
+                    {"available_tests", user_data["available_tests"]}
                 };
 
                 users_profile_info["data"].push_back(profile_info);
@@ -324,12 +321,6 @@ void setup_users_routes(crow::SimpleApp& app, JSONDatabase& users_db, JSONDataba
             auto verifier = jwt::verify()
                 .allow_algorithm(jwt::algorithm::hs256{JWT_SECRET})
                 .with_issuer(ISSUER);
-            try {
-                verifier.verify(decoded);
-            }
-            catch (const std::exception& e) {
-                return crow::response(401, "Сессия устарела или токен поврежден. Войдите заново.");
-            }
             
             // Чтение бд
             json users_data = users_db.read()["data"];
@@ -348,7 +339,8 @@ void setup_users_routes(crow::SimpleApp& app, JSONDatabase& users_db, JSONDataba
                     {"id", user_id},
                     {"user", user_data["username"]},
                     {"firstname", user_data["firstname"]},
-                    {"lastname", user_data["lastname"]}
+                    {"lastname", user_data["lastname"]},
+                    {"available_tests", user_data["available_tests"]}
                 };
 
                 users_profile_info["data"].push_back(profile_info);

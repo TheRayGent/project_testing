@@ -16,7 +16,7 @@ void setup_tests_routes(crow::SimpleApp& app, JSONDatabase& users_db, JSONDataba
             if (!body.contains("token")) {
                 return crow::response(400, "Ошибка: отсутствует поле token в запросе");
             }
-            
+
             std::string token = body.at("token");
             if (token.empty()) {
                 return crow::response(401, "Ошибка: требуется авторизация");
@@ -27,12 +27,6 @@ void setup_tests_routes(crow::SimpleApp& app, JSONDatabase& users_db, JSONDataba
             auto verifier = jwt::verify()
                 .allow_algorithm(jwt::algorithm::hs256{JWT_SECRET})
                 .with_issuer(ISSUER);
-            try {
-                verifier.verify(decoded);
-            }
-            catch (const std::exception& e) {
-                return crow::response(401, "Сессия устарела или токен поврежден. Войдите заново.");
-            }
 
             // Получение role и user_id из токена
             std::string role = decoded.get_payload_claim("role").as_string();
@@ -129,12 +123,6 @@ void setup_tests_routes(crow::SimpleApp& app, JSONDatabase& users_db, JSONDataba
             auto verifier = jwt::verify()
                 .allow_algorithm(jwt::algorithm::hs256{JWT_SECRET})
                 .with_issuer(ISSUER);
-            try {
-                verifier.verify(decoded);
-            }
-            catch (const std::exception& e) {
-                return crow::response(401, "Сессия устарела или токен поврежден. Войдите заново.");
-            }
 
             // Получение role и user_id из токена
             std::string role = decoded.get_payload_claim("role").as_string();
@@ -149,8 +137,12 @@ void setup_tests_routes(crow::SimpleApp& app, JSONDatabase& users_db, JSONDataba
 
             // Получение данных теста
             json test = tests_data["data"][test_id];
+            json user_data = users_db.read();
+            json available_tests = user_data["data"][user_id]["available_tests"];
+            
+            auto it = std::find(available_tests.begin(), available_tests.end(), test_id);
 
-            if (!test.contains("teacher") || test["teacher"].get<std::string>() != user_id) {
+            if (it == available_tests.end() && test["teacher"].get<std::string>() != user_id) {
                 return crow::response(403, "У вас нет доступа к этому тесту");
             }
 
@@ -189,12 +181,6 @@ void setup_tests_routes(crow::SimpleApp& app, JSONDatabase& users_db, JSONDataba
             auto verifier = jwt::verify()
                 .allow_algorithm(jwt::algorithm::hs256{JWT_SECRET})
                 .with_issuer(ISSUER);
-            try {
-                verifier.verify(decoded);
-            }
-            catch (const std::exception& e) {
-                return crow::response(401, "Сессия устарела или токен поврежден. Войдите заново.");
-            }
 
             // Получение role и user_id из токена
             std::string role = decoded.get_payload_claim("role").as_string();
@@ -277,12 +263,6 @@ void setup_tests_routes(crow::SimpleApp& app, JSONDatabase& users_db, JSONDataba
             auto verifier = jwt::verify()
                 .allow_algorithm(jwt::algorithm::hs256{JWT_SECRET})
                 .with_issuer(ISSUER);
-            try {
-                verifier.verify(decoded);
-            }
-            catch (const std::exception& e) {
-                return crow::response(401, "Сессия устарела или токен поврежден. Войдите заново.");
-            }
 
             // Получение user_id из токена
             std::string user_id = decoded.get_payload_claim("user_id").as_string();
@@ -336,12 +316,6 @@ void setup_tests_routes(crow::SimpleApp& app, JSONDatabase& users_db, JSONDataba
             auto verifier = jwt::verify()
                 .allow_algorithm(jwt::algorithm::hs256{JWT_SECRET})
                 .with_issuer(ISSUER);
-            try {
-                verifier.verify(decoded);
-            }
-            catch (const std::exception& e) {
-                return crow::response(401, "Сессия устарела или токен поврежден. Войдите заново.");
-            }
 
             // Чтение бд
             json results_data = results_db.read();
@@ -392,12 +366,6 @@ void setup_tests_routes(crow::SimpleApp& app, JSONDatabase& users_db, JSONDataba
             auto verifier = jwt::verify()
                 .allow_algorithm(jwt::algorithm::hs256{JWT_SECRET})
                 .with_issuer(ISSUER);
-            try {
-                verifier.verify(decoded);
-            }
-            catch (const std::exception& e) {
-                return crow::response(401, "Сессия устарела или токен поврежден. Войдите заново.");
-            }
 
             // Получение user_id из токена
             std::string user_id = decoded.get_payload_claim("user_id").as_string();

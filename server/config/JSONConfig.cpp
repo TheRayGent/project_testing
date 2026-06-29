@@ -29,7 +29,7 @@ JSONConfig load_config()
         jwt_secret = data["JWT_SECRET"].get<std::string>();
     }
     if (!data.contains("PASSWORD_SALT")) {
-        std::cout << "[WARNING]  Ключ PASSWORD_SALT не найден, используется значение по умолчанию.\n";
+        std::cout << "[WARNING] Ключ PASSWORD_SALT не найден, используется значение по умолчанию.\n";
         password_salt = "some_random_salt_string_123!";
     }
     else {
