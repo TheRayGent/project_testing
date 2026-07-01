@@ -14,7 +14,7 @@ protected:
     mutable std::shared_mutex db_mutex;
     json cache_data;
 
-    virtual void load_from_disk();
+    virtual bool load_from_disk();
 
     void save_to_disk_internal() const; 
 
@@ -31,7 +31,7 @@ public:
 
 class UnindexedJSONDatabase : public JSONDatabase {
 protected:
-    void load_from_disk() override;
+    bool load_from_disk() override;
 
 public:
     explicit UnindexedJSONDatabase(std::string file_path);
