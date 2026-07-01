@@ -1,19 +1,22 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Windows;
 
 namespace Client.Models
 {
-    // Модель для списка тестов
     public class TestItemDto
     {
         public string Id { get; set; } = string.Empty;
         public string Title { get; set; } = string.Empty;
         public string Description { get; set; } = string.Empty;
         public List<ServerQuestionDto> Questions { get; set; } = new();
+
+        public bool IsCompleted { get; set; } = false;
+        public string ResultText { get; set; } = string.Empty;
+        public Visibility ButtonVisibility => IsCompleted ? Visibility.Collapsed : Visibility.Visible;
     }
 
-    // Модель вопроса, приходящего с сервера
     public class ServerQuestionDto
     {
         public string text { get; set; } = string.Empty;
@@ -21,7 +24,6 @@ namespace Client.Models
         public int correct_option { get; set; }
     }
 
-    // Модель варианта ответа для экрана студента (чтобы ставить галочки)
     public class StudentOption
     {
         public string Text { get; set; } = string.Empty;
@@ -32,7 +34,15 @@ namespace Client.Models
     {
         public string Id { get; set; } = string.Empty;
         public string FullName { get; set; } = string.Empty;
-        public bool IsChecked { get; set; } = false; // Для галочки в интерфейсе
+        public bool IsChecked { get; set; } = false;
+        public List<string> AvailableTests { get; set; } = new(); 
+    }
+
+    // НОВАЯ МОДЕЛЬ: Для отображения списка результатов без всплывающего окна
+    public class StudentResultDto
+    {
+        public string StudentName { get; set; } = string.Empty;
+        public string Score { get; set; } = string.Empty;
     }
 
     public class EditableOption { public string Text { get; set; } = string.Empty; public bool IsCorrect { get; set; } = false; }

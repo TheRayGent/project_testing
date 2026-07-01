@@ -12,8 +12,7 @@ namespace Client.Services
     {
         private static readonly HttpClient client = new HttpClient { BaseAddress = new Uri("http://localhost:5000/") };
 
-        // 1. Вход
-        public static async Task<bool> LoginAsync(string username, string password)
+        public static async Task<(bool Success, string ErrorMessage)> LoginAsync(string username, string password)
         {
             var req = new { username, password };
             var content = new StringContent(JsonSerializer.Serialize(req), Encoding.UTF8, "application/json");
@@ -25,14 +24,14 @@ namespace Client.Services
                     string jsonString = await response.Content.ReadAsStringAsync();
                     using var doc = JsonDocument.Parse(jsonString);
                     Session.Token = doc.RootElement.GetProperty("token").GetString() ?? string.Empty; 
-                    return true;
+                    return (true, "");
                 }
-                return false;
+                return (false, "Неверный логин или пароль");
             }
-            catch { return false; }
+            catch (HttpRequestException) { return (false, "Сервер недоступен. Проверьте подключение."); }
+            catch (Exception ex) { return (false, $"Внутренняя ошибка: {ex.Message}"); }
         }
 
-        // 2. Добавлено поле group
         public static async Task<bool> RegisterAsync(string user, string pass, string fname, string lname, string role, string group)
         {
             var req = new { username = user, password = pass, firstname = fname, lastname = lname, role = role, group = group };
@@ -47,17 +46,15 @@ namespace Client.Services
                     Session.Token = doc.RootElement.GetProperty("token").GetString() ?? string.Empty;
                     return true;
                 }
-                return false;
             }
-            catch { return false; }
+            catch { }
+            return false;
         }
-        
-        // 3. Получение профиля
+
         public static async Task<bool> FetchProfileAsync()
         {
             var req = new { token = Session.Token };
             var content = new StringContent(JsonSerializer.Serialize(req), Encoding.UTF8, "application/json");
-            
             try 
             {
                 var response = await client.PostAsync("api/users/profile", content);
@@ -65,7 +62,6 @@ namespace Client.Services
                 {
                     string jsonString = await response.Content.ReadAsStringAsync();
                     using var doc = JsonDocument.Parse(jsonString);
-                    
                     Session.Role = doc.RootElement.GetProperty("role").GetString() ?? string.Empty;
                     Session.FullName = $"{doc.RootElement.GetProperty("firstname").GetString()} {doc.RootElement.GetProperty("lastname").GetString()}";
 
@@ -84,7 +80,6 @@ namespace Client.Services
             return false;
         }
 
-        //4. Получить конкретный тест по ID
         public static async Task<TestItemDto?> GetTestByIdAsync(string testId)
         {
             var req = new { token = Session.Token };
@@ -104,7 +99,6 @@ namespace Client.Services
             return null;
         }
 
-        // 5. Создание теста
         public static async Task<bool> CreateTestAsync(string title, string desc, object[] questions)
         {
             var req = new { token = Session.Token, title, description = desc, access = "private", questions };
@@ -113,7 +107,61 @@ namespace Client.Services
             return response.IsSuccessStatusCode;
         }
 
-        // 6. Список студентов
+        public static async Task<List<string>> GetGroupsAsync()
+        {
+            var req = new { token = Session.Token };
+            var content = new StringContent(JsonSerializer.Serialize(req), Encoding.UTF8, "application/json");
+            var list = new List<string>();
+            try
+            {
+                var response = await client.PostAsync("api/groups", content);
+                if (response.IsSuccessStatusCode)
+                {
+                    string json = await response.Content.ReadAsStringAsync();
+                    using var doc = JsonDocument.Parse(json);
+                    foreach (var item in doc.RootElement.EnumerateArray()) list.Add(item.GetString() ?? string.Empty);
+                }
+            }
+            catch { }
+            return list;
+        }
+
+        public static async Task<List<StudentUserDto>> GetStudentsByGroupAsync(string group)
+        {
+            var req = new { token = Session.Token };
+            var content = new StringContent(JsonSerializer.Serialize(req), Encoding.UTF8, "application/json");
+            var list = new List<StudentUserDto>();
+            try
+            {
+                var response = await client.PostAsync($"api/users/list/student/{group}", content);
+                if (response.IsSuccessStatusCode)
+                {
+                    string json = await response.Content.ReadAsStringAsync();
+                    using var doc = JsonDocument.Parse(json);
+                    if (doc.RootElement.TryGetProperty("data", out var dataArray) && dataArray.ValueKind == JsonValueKind.Array)
+                    {
+                        foreach (var item in dataArray.EnumerateArray())
+                        {
+                            var student = new StudentUserDto
+                            {
+                                Id = item.GetProperty("id").GetString() ?? string.Empty,
+                                FullName = $"{item.GetProperty("firstname").GetString()} {item.GetProperty("lastname").GetString()}"
+                            };
+
+                            // Читаем, какие тесты уже доступны этому студенту
+                            if (item.TryGetProperty("available_tests", out var avTests) && avTests.ValueKind == JsonValueKind.Array)
+                            {
+                                foreach (var t in avTests.EnumerateArray()) student.AvailableTests.Add(t.ToString());
+                            }
+                            list.Add(student);
+                        }
+                    }
+                }
+            }
+            catch { }
+            return list;
+        }
+
         public static async Task<List<StudentUserDto>> GetStudentsListAsync()
         {
             var req = new { token = Session.Token };
@@ -151,9 +199,6 @@ namespace Client.Services
             return response.IsSuccessStatusCode;
         }
 
-        
-
-        // 7. Для студента: отправить результат
         public static async Task<bool> SetTestResultAsync(string testId, string result)
         {
             var req = new { token = Session.Token, result = result };
@@ -162,7 +207,6 @@ namespace Client.Services
             return response.IsSuccessStatusCode;
         }
 
-        // 8. Для учителя: получить результаты 
         public static async Task<Dictionary<string, string>> GetTestResultsAsync(string testId)
         {
             var req = new { token = Session.Token };
@@ -178,6 +222,25 @@ namespace Client.Services
             }
             catch { }
             return new Dictionary<string, string>();
+        }
+
+        // НОВЫЙ МЕТОД: Получение результата конкретного студента
+        public static async Task<string> GetTestResultForStudentAsync(string testId)
+        {
+            var req = new { token = Session.Token };
+            var content = new StringContent(JsonSerializer.Serialize(req), Encoding.UTF8, "application/json");
+            try
+            {
+                var response = await client.PostAsync($"api/tests/{testId}/get_result", content);
+                if (response.IsSuccessStatusCode)
+                {
+                    string json = await response.Content.ReadAsStringAsync();
+                    using var doc = JsonDocument.Parse(json);
+                    return doc.RootElement.GetProperty("result").GetString() ?? "";
+                }
+            }
+            catch { }
+            return string.Empty;
         }
     }
 }

@@ -9,30 +9,21 @@
             <RowDefinition Height="*"/>    
         </Grid.RowDefinitions>
 
-        <!-- Верхняя шапка (с кнопкой темы) -->
         <Border Grid.Row="0" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,0,0,2" Padding="0,0,0,10" Margin="0,0,0,20">
             <Grid>
                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                     <TextBlock x:Name="StudentNameTxt" FontSize="20" FontWeight="Bold" Foreground="{DynamicResource TextBrush}"/>
                     <Button x:Name="ThemeToggleBtn" Content="🌙 Темная" Margin="20,0,0,0" Padding="10,5" Background="{DynamicResource PanelBrush}" Foreground="{DynamicResource TextBrush}" BorderBrush="{DynamicResource BorderBrush}" Click="ToggleTheme_Click"/>
                 </StackPanel>
-                
                 <Button Content="Выйти" Background="#DC3545" Foreground="White" Padding="15,5" HorizontalAlignment="Right" VerticalAlignment="Center" Click="Logout_Click" BorderThickness="0"/>
             </Grid>
         </Border>
 
         <!-- ЭКРАН 1: СПИСОК ТЕСТОВ -->
         <Grid x:Name="TestSelectionGrid" Grid.Row="1">
-            <Grid.RowDefinitions>
-                <RowDefinition Height="Auto"/>
-                <RowDefinition Height="Auto"/>
-                <RowDefinition Height="*"/>
-            </Grid.RowDefinitions>
-
+            <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
             <TextBlock Grid.Row="0" Text="Доступные тесты" FontSize="26" FontWeight="Bold" Foreground="{DynamicResource TextBrush}" Margin="0,0,0,15"/>
-            
-            <!-- Текст, если тестов нет -->
-            <TextBlock Grid.Row="1" x:Name="NoTestsTxt" Text="У вас пока нет доступных тестов. Ожидайте, пока преподаватель выдаст вам доступ." FontSize="16" Foreground="{DynamicResource HintTextBrush}" Margin="0,30,0,0" Visibility="Collapsed"/>
+            <TextBlock Grid.Row="1" x:Name="NoTestsTxt" Text="У вас пока нет доступных тестов." FontSize="16" Foreground="{DynamicResource HintTextBrush}" Margin="0,30,0,0" Visibility="Collapsed"/>
             
             <ListBox Grid.Row="2" x:Name="TestsListBox" Margin="0,20,0,0" Background="Transparent" BorderThickness="0" HorizontalContentAlignment="Stretch">
                 <ListBox.ItemTemplate>
@@ -47,7 +38,14 @@
                                     <TextBlock Text="{Binding Title}" FontSize="18" FontWeight="Bold" Foreground="{DynamicResource TextBrush}"/>
                                     <TextBlock Text="{Binding Description}" FontSize="14" Foreground="{DynamicResource HintTextBrush}" TextWrapping="Wrap" Margin="0,5,0,0"/>
                                 </StackPanel>
-                                <Button Grid.Column="1" Content="Начать тест" Background="#007ACC" Foreground="White" Padding="15,10" BorderThickness="0" Tag="{Binding Id}" Click="StartTest_Click"/>
+                                
+                                <!-- ИСПРАВЛЕНИЕ: Кнопка "Начать тест" будет полностью пропадать, если тест пройден -->
+                                <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                    <TextBlock Text="{Binding ResultText}" FontSize="16" FontWeight="Bold" Foreground="#28A745" HorizontalAlignment="Right" Margin="0,0,0,5"/>
+                                    
+                                    <!-- Visibility привязана к свойству ButtonVisibility из модели -->
+                                    <Button Content="Начать тест" Visibility="{Binding ButtonVisibility}" Background="#007ACC" Foreground="White" Padding="15,10" BorderThickness="0" Tag="{Binding Id}" Click="StartTest_Click"/>
+                                </StackPanel>
                             </Grid>
                         </Border>
                     </DataTemplate>
@@ -57,18 +55,12 @@
 
         <!-- ЭКРАН 2: ПРОХОЖДЕНИЕ ТЕСТА -->
         <Grid x:Name="TestPassingGrid" Grid.Row="1" Visibility="Collapsed">
-            <Grid.RowDefinitions>
-                <RowDefinition Height="Auto"/>
-                <RowDefinition Height="*"/>
-                <RowDefinition Height="Auto"/>
-            </Grid.RowDefinitions>
-
+            <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
             <TextBlock Grid.Row="0" x:Name="ProgressTxt" FontSize="18" FontWeight="Bold" Foreground="{DynamicResource HintTextBrush}" Margin="0,0,0,10"/>
             
             <Border Grid.Row="1" Background="{DynamicResource PanelBrush}" Padding="20" CornerRadius="10" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" Margin="0,10,0,20" VerticalAlignment="Top">
                 <StackPanel>
                     <TextBlock x:Name="QuestionTxt" FontSize="22" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" TextWrapping="Wrap" Margin="0,0,0,20"/>
-                    
                     <ItemsControl x:Name="DynamicOptionsList">
                         <ItemsControl.ItemTemplate>
                             <DataTemplate>
