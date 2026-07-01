@@ -5,5 +5,7 @@
         public static string Token { get; set; } = string.Empty;
         public static string Role { get; set; } = string.Empty;
         public static string FullName { get; set; } = string.Empty;
+        public static List<string> AvailableTests { get; set; } = new List<string>();
+        public static List<string> CreatedTests { get; set; } = new List<string>();
     }
 }
